@@ -1,0 +1,254 @@
+package com.rork.ananego.data.model
+
+import com.google.android.gms.maps.model.LatLng
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/** Who the person is using the app as right now. */
+enum class AppRole { PASSENGER, DRIVER }
+
+/** Kind of unit that serves a trip. */
+enum class VehicleType(val label: String, val weeklyFeeSoles: Int) {
+    MOTOTAXI("Mototaxi", 5),
+    INTERCITY_CAR("Auto interprovincial", 10)
+}
+
+/** Service the passenger picks on the home screen. */
+enum class ServiceKind(val title: String, val subtitle: String) {
+    LOCAL_MOTOTAXI("Mototaxi local", "Rápido y seguro en Satipo"),
+    INTERCITY("Auto a Pichanaki / La Merced", "Viaja cómodo a otras ciudades")
+}
+
+/** Special-attention options a passenger can flag for a trip. */
+enum class RidePreference(val label: String) {
+    WHEELCHAIR("Silla de ruedas"),
+    LUGGAGE("Con equipaje"),
+    ELDERLY("Adulto mayor"),
+    CHILD_SEAT("Viaja con niño"),
+    PET("Con mascota")
+}
+
+/**
+ * A real world position in decimal degrees. Replaces the previous fractional
+ * canvas coordinate so every marker can be drawn on Google Maps directly.
+ */
+data class Coordinate(val latitude: Double, val longitude: Double) {
+    fun toLatLng(): LatLng = LatLng(latitude, longitude)
+
+    /** Great-circle distance in kilometers using the haversine formula. */
+    fun distanceKmTo(other: Coordinate): Double {
+        val earthRadiusKm = 6371.0
+        val dLat = Math.toRadians(other.latitude - latitude)
+        val dLon = Math.toRadians(other.longitude - longitude)
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(Math.toRadians(latitude)) * cos(Math.toRadians(other.latitude)) *
+            sin(dLon / 2) * sin(dLon / 2)
+        return earthRadiusKm * 2 * atan2(sqrt(a), sqrt(1 - a))
+    }
+
+    /** Linear interpolation, used to animate a driver moving toward a point. */
+    fun moveToward(target: Coordinate, fraction: Double): Coordinate = Coordinate(
+        latitude = latitude + (target.latitude - latitude) * fraction,
+        longitude = longitude + (target.longitude - longitude) * fraction
+    )
+}
+
+fun LatLng.toCoordinate(): Coordinate = Coordinate(latitude, longitude)
+
+data class Driver(
+    val id: String,
+    val name: String,
+    val initials: String,
+    val rating: Double,
+    val tripCount: Int,
+    val vehicleType: VehicleType,
+    val plate: String,
+    val etaMinutes: Int,
+    val distanceKm: Double,
+    val position: Coordinate,
+    val isVerified: Boolean = true,
+    /** True for the demo fleet the service keeps running while Satipo signs up. */
+    val isSimulated: Boolean = false
+)
+
+data class Place(
+    val name: String,
+    val detail: String,
+    val position: Coordinate
+)
+
+enum class RideStatus(val label: String) {
+    SEARCHING("Buscando conductor"),
+    ACCEPTED("Conductor en camino"),
+    ARRIVED("Tu conductor llegó"),
+    ON_TRIP("En viaje"),
+    COMPLETED("Viaje completado"),
+    CANCELLED("Viaje cancelado")
+}
+
+data class Ride(
+    val id: String,
+    val serviceKind: ServiceKind,
+    val origin: Place,
+    val destination: Place,
+    val driver: Driver?,
+    val fareSoles: Double,
+    val status: RideStatus,
+    val passengerCount: Int,
+    val preferences: Set<RidePreference>,
+    val createdAtLabel: String
+)
+
+/** A driver's price for the passenger's open request, ready to accept. */
+data class RideOffer(
+    val rideId: String,
+    val driver: Driver,
+    val amountSoles: Double
+)
+
+/** A passenger request shown live in the driver dashboard. */
+data class RideRequest(
+    val id: String,
+    val passengerName: String,
+    val passengerInitials: String,
+    val passengerRating: Double,
+    val passengerVerified: Boolean,
+    val originName: String,
+    val destinationName: String,
+    val origin: Coordinate,
+    val destination: Coordinate,
+    val fareSoles: Double,
+    val distanceKm: Double,
+    val minutesAgo: Int,
+    val passengerCount: Int,
+    val preferences: Set<RidePreference>,
+    val serviceKind: ServiceKind,
+    /** This driver's live counteroffer for the request, if any. */
+    val myOfferSoles: Double? = null
+)
+
+enum class VerificationStatus(val label: String) {
+    NOT_STARTED("Sin registrar"),
+    PENDING("En revisión"),
+    VERIFIED("Verificado"),
+    REJECTED("Rechazado")
+}
+
+/**
+ * Document photos the driver captures and uploads so the review team can
+ * officially verify their identity and their unit.
+ */
+enum class VerificationPhoto(val label: String) {
+    PROFILE("Foto de perfil"),
+    DNI_FRONT("DNI frente"),
+    DNI_BACK("DNI reverso"),
+    VEHICLE_CARD("Tarjeta de propiedad"),
+    PLATE("Placa del vehículo")
+}
+
+data class DriverProfile(
+    val fullName: String = "",
+    val dni: String = "",
+    val plate: String = "",
+    val vehicleType: VehicleType = VehicleType.MOTOTAXI,
+    val hasProfilePhoto: Boolean = false,
+    val hasDniFront: Boolean = false,
+    val hasDniBack: Boolean = false,
+    val hasVehicleCard: Boolean = false,
+    val hasPlatePhoto: Boolean = false,
+    val status: VerificationStatus = VerificationStatus.NOT_STARTED,
+    /** Why the last review was rejected, shown so the driver can fix it. */
+    val rejectionReason: String = ""
+) {
+    val isComplete: Boolean
+        get() = fullName.isNotBlank() &&
+            dni.length >= 8 &&
+            plate.isNotBlank() &&
+            hasProfilePhoto &&
+            hasDniFront &&
+            hasDniBack &&
+            hasVehicleCard &&
+            hasPlatePhoto
+}
+
+data class Subscription(
+    val vehicleType: VehicleType,
+    val isActive: Boolean,
+    val daysRemaining: Int,
+    val paidThisWeekSoles: Double,
+    val renewsOnLabel: String
+) {
+    val weeklyFeeSoles: Int get() = vehicleType.weeklyFeeSoles
+    val progress: Float get() = (daysRemaining.coerceIn(0, 7)) / 7f
+}
+
+data class DriverDayStats(
+    val trips: Int,
+    val earningsSoles: Double,
+    val onlineMinutes: Int,
+    val acceptanceRate: Int
+)
+
+data class PassengerProfile(
+    val name: String,
+    val initials: String,
+    val phone: String,
+    val dni: String,
+    val rating: Double,
+    val isVerified: Boolean,
+    val defaultPassengerCount: Int,
+    val defaultPreferences: Set<RidePreference>
+)
+
+/** How the device location is currently being obtained. */
+enum class LocationStatus {
+    IDLE,
+    PERMISSION_REQUIRED,
+    LOCATING,
+    LIVE,
+    UNAVAILABLE
+}
+
+/**
+ * Price rules of the negotiation: the suggested fare the passenger starts
+ * from and the floor nobody may go below.
+ */
+object FareRules {
+    /** Quick-adjust step of the price proposal sheet. */
+    const val STEP_SOLES: Double = 0.5
+
+    fun floorSoles(service: ServiceKind): Double = when (service) {
+        ServiceKind.LOCAL_MOTOTAXI -> 3.5
+        ServiceKind.INTERCITY -> 12.0
+    }
+
+    /** Fixed intercity quotes so the suggestion matches the server's fare. */
+    private val fixedIntercityFares: Map<String, Double> = mapOf(
+        "pichanaki" to 25.0,
+        "la merced" to 35.0,
+        "mazamari" to 20.0,
+        "pangoa" to 25.0
+    )
+
+    fun suggestedSoles(service: ServiceKind, destinationName: String, distanceKm: Double): Double {
+        return when (service) {
+            ServiceKind.LOCAL_MOTOTAXI ->
+                round((3.0 + distanceKm * 1.2).coerceIn(3.5, 15.0))
+            ServiceKind.INTERCITY ->
+                fixedIntercityFares[destinationName.trim().lowercase()]
+                    ?: round((10.0 + distanceKm * 0.45).coerceAtLeast(12.0))
+        }
+    }
+
+    /** Snaps an amount to the nearest S/ 0.50 and lifts it above the floor. */
+    fun clamp(amount: Double, service: ServiceKind): Double {
+        val safe = if (amount.isNaN()) floorSoles(service) else amount
+        val snapped = (safe * 2).roundToInt() / 2.0
+        return maxOf(snapped, floorSoles(service))
+    }
+
+    private fun round(value: Double): Double = (value * 2).roundToInt() / 2.0
+}
