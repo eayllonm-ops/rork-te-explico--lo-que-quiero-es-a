@@ -80,6 +80,18 @@ data class Place(
     val position: Coordinate
 )
 
+/**
+ * One live suggestion from Google Places while the passenger is still typing.
+ * Has no coordinates yet — [com.rork.ananego.data.remote.PlacesRepository.resolvePlace]
+ * fetches those only once the passenger actually taps a suggestion, so every
+ * keystroke doesn't burn a Place Details call.
+ */
+data class PlacePrediction(
+    val placeId: String,
+    val primaryText: String,
+    val secondaryText: String
+)
+
 enum class RideStatus(val label: String) {
     SEARCHING("Buscando conductor"),
     ACCEPTED("Conductor en camino"),
