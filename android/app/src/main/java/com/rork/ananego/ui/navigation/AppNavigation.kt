@@ -208,6 +208,7 @@ fun AppNavigation() {
                     contentPadding = innerPadding,
                     onSelectService = viewModel::selectService,
                     onSearchChange = viewModel::updateSearchQuery,
+                    onResolvePrediction = viewModel::resolvePlace,
                     onRequestRide = { place, proposedFare ->
                         viewModel.requestRide(place, proposedFare)
                         navController.navigate(Routes.RIDE)
