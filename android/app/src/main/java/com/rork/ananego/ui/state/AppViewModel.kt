@@ -18,6 +18,7 @@ import com.rork.ananego.data.model.FareRules
 import com.rork.ananego.data.model.LocationStatus
 import com.rork.ananego.data.model.PassengerProfile
 import com.rork.ananego.data.model.Place
+import com.rork.ananego.data.model.PlacePrediction
 import com.rork.ananego.data.model.Ride
 import com.rork.ananego.data.model.RideOffer
 import com.rork.ananego.data.model.RidePreference
@@ -33,6 +34,7 @@ import com.rork.ananego.data.remote.ConnectionStatus
 import com.rork.ananego.data.remote.LiveEvent
 import com.rork.ananego.data.remote.NetworkAdminDriver
 import com.rork.ananego.data.remote.NetworkSnapshot
+import com.rork.ananego.data.remote.PlacesRepository
 import com.rork.ananego.data.remote.SnapshotMapper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -54,6 +56,9 @@ data class AppUiState(
     val role: AppRole = AppRole.PASSENGER,
     val selectedService: ServiceKind = ServiceKind.LOCAL_MOTOTAXI,
     val searchQuery: String = "",
+    /** Live Google Places results for [searchQuery], resolved by [AppViewModel.updateSearchQuery]. */
+    val placePredictions: List<PlacePrediction> = emptyList(),
+    val isSearchingPlaces: Boolean = false,
     val userLocation: Coordinate? = null,
     val locationStatus: LocationStatus = LocationStatus.IDLE,
     val connection: ConnectionStatus = ConnectionStatus.CONNECTING,
@@ -131,6 +136,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val locationProvider = LocationProvider(application)
     private val session = DeviceSession(application)
     private val backend = AnaneBackend()
+    private val placesRepository = PlacesRepository(application.applicationContext)
 
     private val _uiState = MutableStateFlow(
         AppUiState(role = if (session.lastRole == "DRIVER") AppRole.DRIVER else AppRole.PASSENGER)
@@ -142,6 +148,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private var locationJob: Job? = null
     private var streamJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var placesSearchJob: Job? = null
     private var lastSentLocation: Coordinate? = null
 
     init {
@@ -327,6 +334,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+
+        placesSearchJob?.cancel()
+        val trimmed = query.trim()
+        if (trimmed.length < 3) {
+            _uiState.update { it.copy(placePredictions = emptyList(), isSearchingPlaces = false) }
+            return
+        }
+
+        placesSearchJob = viewModelScope.launch {
+            delay(350) // debounce so we don't fire a request on every keystroke
+            _uiState.update { it.copy(isSearchingPlaces = true) }
+            val predictions = placesRepository.autocomplete(trimmed, _uiState.value.mapCenter)
+            if (isActive) {
+                _uiState.update { it.copy(placePredictions = predictions, isSearchingPlaces = false) }
+            }
+        }
+    }
+
+    /**
+     * Resolves a live Google Places suggestion into a real [Place] with
+     * coordinates, so it can be requested exactly like a sample destination.
+     * Called once, when the passenger actually taps a suggestion.
+     */
+    suspend fun resolvePlace(prediction: PlacePrediction): Place? {
+        val place = placesRepository.resolvePlace(prediction)
+        _uiState.update { it.copy(placePredictions = emptyList(), searchQuery = "") }
+        return place
     }
 
     // ------------------------------------------------------------------ rides
