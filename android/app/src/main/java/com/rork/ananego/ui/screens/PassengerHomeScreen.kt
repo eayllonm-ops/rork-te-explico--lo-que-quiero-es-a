@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +67,7 @@ import com.rork.ananego.data.model.Driver
 import com.rork.ananego.data.model.FareRules
 import com.rork.ananego.data.model.LocationStatus
 import com.rork.ananego.data.model.Place
+import com.rork.ananego.data.model.PlacePrediction
 import com.rork.ananego.data.model.ServiceKind
 import com.rork.ananego.data.model.VehicleType
 import com.rork.ananego.ui.components.CITY_ZOOM
@@ -102,6 +104,7 @@ fun PassengerHomeScreen(
     contentPadding: PaddingValues,
     onSelectService: (ServiceKind) -> Unit,
     onSearchChange: (String) -> Unit,
+    onResolvePrediction: suspend (PlacePrediction) -> Place?,
     onRequestRide: (Place, Double) -> Unit,
     onOpenActiveRide: () -> Unit,
     onOpenDriver: (Driver) -> Unit,
@@ -110,6 +113,7 @@ fun PassengerHomeScreen(
 ) {
     var isSearching by remember { mutableStateOf(false) }
     var pendingPlace by remember { mutableStateOf<Place?>(null) }
+    val predictionScope = rememberCoroutineScope()
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -152,6 +156,30 @@ fun PassengerHomeScreen(
                         isSearching = false
                         onSearchChange("")
                         pendingPlace = place
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+        }
+
+        item {
+            AnimatedVisibility(
+                visible = isSearching && state.searchQuery.isNotBlank(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                LivePlaceSuggestions(
+                    predictions = state.placePredictions,
+                    isLoading = state.isSearchingPlaces,
+                    onPick = { prediction ->
+                        predictionScope.launch {
+                            val resolved = onResolvePrediction(prediction)
+                            if (resolved != null) {
+                                isSearching = false
+                                onSearchChange("")
+                                pendingPlace = resolved
+                            }
+                        }
                     },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -475,6 +503,95 @@ private fun DestinationSuggestions(
                     color = TextSecondary,
                     modifier = Modifier.padding(16.dp)
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Real streets and points of interest from Google Places, shown below the
+ * fixed [DestinationSuggestions] once the passenger has typed at least three
+ * characters. Resolves to full coordinates only when the passenger taps one.
+ */
+@Composable
+private fun LivePlaceSuggestions(
+    predictions: List<PlacePrediction>,
+    isLoading: Boolean,
+    onPick: (PlacePrediction) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    JungleCard(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.heightIn(max = 280.dp)) {
+            if (isLoading && predictions.isEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = GoldAccent
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "Buscando direcciones…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            } else {
+                predictions.forEach { prediction ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickableCard { onPick(prediction) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(GoldAccent.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Filled.Place,
+                                contentDescription = null,
+                                tint = GoldAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = prediction.primaryText,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (prediction.secondaryText.isNotBlank()) {
+                                Text(
+                                    text = prediction.secondaryText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (predictions.isEmpty()) {
+                    Text(
+                        text = "No encontramos esa dirección",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
         }
     }
