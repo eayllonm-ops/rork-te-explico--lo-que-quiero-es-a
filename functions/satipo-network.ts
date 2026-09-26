@@ -51,9 +51,19 @@ const SIM_TARGET_FLEET = 6;
 
 /** Minimum price a passenger may propose per service. */
 const FARE_FLOORS: Record<ServiceKind, number> = {
-  LOCAL_MOTOTAXI: 3.5,
-  INTERCITY: 12,
+  LOCAL_MOTOTAXI: 2,
+  INTERCITY: 5,
 };
+
+/** Flat Satipo route fares (autos de ruta), matched by keyword. No Directions API calls. */
+const FIXED_INTERCITY_FARES: ReadonlyArray<{ keys: string[]; fare: number }> = [
+  { keys: ["mazamari"], fare: 5 },
+  { keys: ["pangoa"], fare: 8 },
+  { keys: ["pichanaqui", "pichanaki"], fare: 20 },
+  { keys: ["la merced"], fare: 40 },
+  { keys: ["huancayo"], fare: 90 },
+  { keys: ["lima"], fare: 140 },
+];
 /** Demo drivers counter-offer after this quiet period (real drivers first). */
 const SIM_OFFER_GRACE_ONLINE_MS = 30_000;
 const SIM_OFFER_GRACE_OFFLINE_MS = 10_000;
@@ -186,14 +196,16 @@ function vehicleFor(service: string): VehicleType {
 
 function estimateFare(service: string, km: number, destinationName: string): number {
   if (service === "INTERCITY") {
-    if (destinationName.includes("La Merced")) return 35;
-    if (destinationName.includes("Pichanaki")) return 25;
-    if (destinationName.includes("Mazamari")) return 20;
-    if (destinationName.includes("Pangoa")) return 25;
-    return Math.max(12, Math.round(10 + km * 0.45));
+    const name = destinationName.toLowerCase();
+    const fixed = FIXED_INTERCITY_FARES.find(({ keys }) =>
+      keys.some((key) => new RegExp(`\\b${key}\\b`).test(name)),
+    );
+    if (fixed) return fixed.fare;
+    return Math.max(5, Math.round(5 + km * 0.45));
   }
-  const raw = 3 + km * 1.2;
-  return Math.round(Math.min(Math.max(raw, 3.5), 15) * 2) / 2;
+  // S/ 2.00 base covers the first 1.5 km, then S/ 1.00 per extra km.
+  const raw = 2 + Math.max(0, km - 1.5);
+  return Math.round(Math.min(Math.max(raw, 2), 15) * 2) / 2;
 }
 
 const SIM_SEED: ReadonlyArray<{
@@ -755,7 +767,7 @@ export class SatipoNetwork extends DurableObject<Env> {
     const destName = String(body.destName ?? "Destino");
     const km = distanceKm({ lat: originLat, lng: originLng }, { lat: destLat, lng: destLng });
     // The passenger sets their own price; the suggested fare is the fallback.
-    const floor = FARE_FLOORS[service] ?? 3.5;
+    const floor = FARE_FLOORS[service] ?? 2;
     const proposed = Math.round(Number(body.proposedFare) * 2) / 2;
     const fare = Number.isFinite(proposed) && proposed >= floor
       ? proposed
@@ -859,7 +871,7 @@ export class SatipoNetwork extends DurableObject<Env> {
       return "Renueva tu suscripción para ofertar";
     }
 
-    const floor = FARE_FLOORS[ride.service_kind as ServiceKind] ?? 3.5;
+    const floor = FARE_FLOORS[ride.service_kind as ServiceKind] ?? 2;
     const amount = Math.round(Number(body.amount) * 2) / 2;
     if (!Number.isFinite(amount) || amount < floor) {
       return `El monto mínimo es S/ ${floor.toFixed(2)}`;
@@ -1270,7 +1282,7 @@ export class SatipoNetwork extends DurableObject<Env> {
     const chosen = candidates[0];
     if (!chosen) return null;
 
-    const floor = FARE_FLOORS[ride.service_kind as ServiceKind] ?? 3.5;
+    const floor = FARE_FLOORS[ride.service_kind as ServiceKind] ?? 2;
     const amount = Math.max(floor, Math.ceil((ride.fare + 0.5 + Math.random()) * 2) / 2);
     const now = Date.now();
     this.ctx.storage.sql.exec(

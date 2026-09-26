@@ -9,6 +9,7 @@ import com.rork.ananego.data.model.Place
 import com.rork.ananego.data.model.PlacePrediction
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -30,6 +31,10 @@ import kotlin.coroutines.resume
 
 private const val TAG = "PlacesRepository"
 private const val PLACES_BASE = "https://places.googleapis.com/v1/places"
+
+/** Fixed search bias: Satipo city center, so local schools, hospitals and streets rank first. */
+val SATIPO_SEARCH_CENTER = Coordinate(-11.2522, -74.6386)
+private const val SATIPO_BIAS_RADIUS_M = 30_000.0
 
 /**
  * Turns what the passenger types into real streets and points of interest via
@@ -65,14 +70,15 @@ class PlacesRepository(context: Context) {
         sessionToken = UUID.randomUUID().toString()
     }
 
-    /** Finds addresses and places matching [query], biased toward [bias] (the rider's current map center). */
-    suspend fun autocomplete(query: String, bias: Coordinate): List<PlacePrediction> {
+    /** Finds addresses and places in Peru matching [query], biased toward [bias] (Satipo by default). */
+    suspend fun autocomplete(query: String, bias: Coordinate = SATIPO_SEARCH_CENTER): List<PlacePrediction> {
         if (!isConfigured || query.isBlank()) return emptyList()
         val body = buildJsonObject {
             put("input", JsonPrimitive(query))
             put("sessionToken", JsonPrimitive(sessionToken))
             put("languageCode", JsonPrimitive("es"))
-            put("regionCode", JsonPrimitive("PE"))
+            put("regionCode", JsonPrimitive("pe"))
+            put("includedRegionCodes", JsonArray(listOf(JsonPrimitive("pe"))))
             put(
                 "locationBias",
                 buildJsonObject {
@@ -86,7 +92,7 @@ class PlacesRepository(context: Context) {
                                     put("longitude", JsonPrimitive(bias.longitude))
                                 }
                             )
-                            put("radius", JsonPrimitive(50000.0))
+                            put("radius", JsonPrimitive(SATIPO_BIAS_RADIUS_M))
                         }
                     )
                 }

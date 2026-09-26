@@ -19,7 +19,7 @@ enum class VehicleType(val label: String, val weeklyFeeSoles: Int) {
 /** Service the passenger picks on the home screen. */
 enum class ServiceKind(val title: String, val subtitle: String) {
     LOCAL_MOTOTAXI("Mototaxi local", "Rápido y seguro en Satipo"),
-    INTERCITY("Auto a Pichanaki / La Merced", "Viaja cómodo a otras ciudades")
+    INTERCITY("Auto de ruta", "Tarifa plana: Mazamari, Pangoa, Pichanaqui, La Merced, Huancayo, Lima")
 }
 
 /** Special-attention options a passenger can flag for a trip. */
@@ -232,26 +232,44 @@ object FareRules {
     /** Quick-adjust step of the price proposal sheet. */
     const val STEP_SOLES: Double = 0.5
 
+    /** Mototaxi base / minimum fare inside Satipo. */
+    const val MOTOTAXI_BASE_SOLES: Double = 2.0
+
     fun floorSoles(service: ServiceKind): Double = when (service) {
-        ServiceKind.LOCAL_MOTOTAXI -> 3.5
-        ServiceKind.INTERCITY -> 12.0
+        ServiceKind.LOCAL_MOTOTAXI -> MOTOTAXI_BASE_SOLES
+        ServiceKind.INTERCITY -> 5.0
     }
 
-    /** Fixed intercity quotes so the suggestion matches the server's fare. */
-    private val fixedIntercityFares: Map<String, Double> = mapOf(
-        "pichanaki" to 25.0,
-        "la merced" to 35.0,
-        "mazamari" to 20.0,
-        "pangoa" to 25.0
+    /**
+     * Flat Satipo route fares (autos de ruta). Matched by keyword so
+     * "San Martín de Pangoa" or "Pichanaki" hit the right price. Loaded as
+     * direct values — no Directions / Distance Matrix call is ever made.
+     */
+    private val fixedIntercityFares: List<Pair<List<String>, Double>> = listOf(
+        listOf("mazamari") to 5.0,
+        listOf("pangoa") to 8.0,
+        listOf("pichanaqui", "pichanaki") to 20.0,
+        listOf("la merced") to 40.0,
+        listOf("huancayo") to 90.0,
+        listOf("lima") to 140.0
     )
+
+    /** Flat fare for a known route, or null when the destination has no fixed price. */
+    fun fixedIntercitySoles(destinationName: String): Double? {
+        val name = destinationName.trim().lowercase()
+        return fixedIntercityFares.firstOrNull { (keys, _) ->
+            keys.any { key -> Regex("\\b${Regex.escape(key)}\\b").containsMatchIn(name) }
+        }?.second
+    }
 
     fun suggestedSoles(service: ServiceKind, destinationName: String, distanceKm: Double): Double {
         return when (service) {
+            // S/ 2.00 covers the first 1.5 km, then S/ 1.00 per extra km.
             ServiceKind.LOCAL_MOTOTAXI ->
-                round((3.0 + distanceKm * 1.2).coerceIn(3.5, 15.0))
+                round((MOTOTAXI_BASE_SOLES + (distanceKm - 1.5).coerceAtLeast(0.0)).coerceIn(MOTOTAXI_BASE_SOLES, 15.0))
             ServiceKind.INTERCITY ->
-                fixedIntercityFares[destinationName.trim().lowercase()]
-                    ?: round((10.0 + distanceKm * 0.45).coerceAtLeast(12.0))
+                fixedIntercitySoles(destinationName)
+                    ?: round((5.0 + distanceKm * 0.45).coerceAtLeast(5.0))
         }
     }
 

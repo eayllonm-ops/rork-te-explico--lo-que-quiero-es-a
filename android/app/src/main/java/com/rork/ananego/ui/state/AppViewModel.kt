@@ -35,6 +35,7 @@ import com.rork.ananego.data.remote.LiveEvent
 import com.rork.ananego.data.remote.NetworkAdminDriver
 import com.rork.ananego.data.remote.NetworkSnapshot
 import com.rork.ananego.data.remote.PlacesRepository
+import com.rork.ananego.data.remote.SATIPO_SEARCH_CENTER
 import com.rork.ananego.data.remote.SnapshotMapper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -343,9 +344,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         placesSearchJob = viewModelScope.launch {
-            delay(350) // debounce so we don't fire a request on every keystroke
+            delay(450) // debounce so we don't fire a request on every keystroke
             _uiState.update { it.copy(isSearchingPlaces = true) }
-            val predictions = placesRepository.autocomplete(trimmed, _uiState.value.mapCenter)
+            val predictions = placesRepository.autocomplete(trimmed, SATIPO_SEARCH_CENTER)
             if (isActive) {
                 _uiState.update { it.copy(placePredictions = predictions, isSearchingPlaces = false) }
             }

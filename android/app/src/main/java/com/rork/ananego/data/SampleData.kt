@@ -34,10 +34,12 @@ object SampleData {
     )
 
     val intercityDestinations: List<Place> = listOf(
-        Place("Pichanaki", "76 km · aprox. 1 h 30 min", Coordinate(-10.92835, -74.87038)),
-        Place("La Merced", "128 km · aprox. 2 h 40 min", Coordinate(-11.05754, -75.33784)),
-        Place("Mazamari", "22 km · aprox. 35 min", Coordinate(-11.32361, -74.52834)),
-        Place("San Martín de Pangoa", "34 km · aprox. 50 min", Coordinate(-11.40085, -74.54752))
+        Place("Mazamari", "Tarifa plana S/ 5.00 · aprox. 35 min", Coordinate(-11.32361, -74.52834)),
+        Place("San Martín de Pangoa", "Tarifa plana S/ 8.00 · aprox. 50 min", Coordinate(-11.40085, -74.54752)),
+        Place("Pichanaqui", "Tarifa plana S/ 20.00 · aprox. 1 h 30 min", Coordinate(-10.92835, -74.87038)),
+        Place("La Merced", "Tarifa plana S/ 40.00 · aprox. 2 h 40 min", Coordinate(-11.05754, -75.33784)),
+        Place("Huancayo", "Tarifa plana S/ 90.00 · aprox. 6 h", Coordinate(-12.06513, -75.20486)),
+        Place("Lima", "Tarifa plana S/ 140.00 · aprox. 10 h", Coordinate(-12.04637, -77.04279))
     )
 
     /** Average city speeds used to turn a real distance into an ETA. */
@@ -167,15 +169,15 @@ object SampleData {
             passengerRating = 4.5,
             passengerVerified = false,
             originName = "Satipo centro",
-            destinationName = "Pichanaki",
+            destinationName = "Pichanaqui",
             originOffsetLat = -0.0012,
             originOffsetLng = 0.0024,
-            fareSoles = 25.0,
+            fareSoles = 20.0,
             minutesAgo = 6,
             passengerCount = 3,
             preferences = setOf(RidePreference.LUGGAGE),
             serviceKind = ServiceKind.INTERCITY,
-            destinationIndex = 0
+            destinationIndex = 2
         )
     )
 
