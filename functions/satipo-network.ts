@@ -724,13 +724,26 @@ export class SatipoNetwork extends DurableObject<Env> {
     return null;
   }
 
-  /** Saves the driver's Yape / Plin number without resetting their review. */
+  /**
+   * Saves the driver's contact mobile and/or Yape / Plin number instantly.
+   * Never touches driver_status, so an approved driver stays approved.
+   */
   private updatePayout(userId: string, body: Record<string, unknown>): string | null {
-    const payoutPhone = cleanPhone(body.payoutPhone);
+    const current = this.user(userId);
+    const phone = body.phone !== undefined ? cleanPhone(body.phone) : current.phone;
+    if (body.phone !== undefined && phone.length !== 9) {
+      return "Ingresa tu número de celular (9 dígitos)";
+    }
+    const payoutPhone = body.payoutPhone !== undefined ? cleanPhone(body.payoutPhone) : current.payout_phone;
     if (payoutPhone.length !== 0 && payoutPhone.length !== 9) {
       return "El número de Yape / Plin debe tener 9 dígitos";
     }
-    this.ctx.storage.sql.exec("UPDATE users SET payout_phone = ? WHERE id = ?", payoutPhone, userId);
+    this.ctx.storage.sql.exec(
+      "UPDATE users SET phone = ?, payout_phone = ? WHERE id = ?",
+      phone,
+      payoutPhone,
+      userId,
+    );
     return null;
   }
 

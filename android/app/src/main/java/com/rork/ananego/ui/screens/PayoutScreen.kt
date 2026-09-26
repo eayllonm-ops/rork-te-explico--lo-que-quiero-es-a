@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.QrCode2
@@ -67,7 +68,10 @@ import com.rork.ananego.ui.theme.JungleSurfaceHigh
 import com.rork.ananego.ui.theme.SuccessGreen
 import com.rork.ananego.ui.theme.TextSecondary
 
-/** Standalone screen where a (verified) driver sets up Yape / Plin without resubmitting documents. */
+/**
+ * Standalone screen where a (verified) driver updates the contact mobile and
+ * Yape / Plin details instantly, without resubmitting documents or losing approval.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PayoutScreen(
@@ -81,7 +85,7 @@ fun PayoutScreen(
         containerColor = JungleCanvas,
         topBar = {
             TopAppBar(
-                title = { Text("Cobros con Yape / Plin", style = MaterialTheme.typography.titleMedium) },
+                title = { Text("Contacto y cobros", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -104,12 +108,101 @@ fun PayoutScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Cuando un pasajero elige Yape / Plin, al terminar el viaje ve tu QR y número para pagarte al instante. Sin comisiones.",
+                text = "Los cambios se guardan al instante y no afectan tu aprobación como conductor.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )
+            ContactPhoneCard(viewModel = viewModel)
             PayoutCard(viewModel = viewModel)
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+/** Contact mobile the passenger reaches with one tap (Llamar / WhatsApp) during the ride. */
+@Composable
+fun ContactPhoneCard(viewModel: AppViewModel, modifier: Modifier = Modifier) {
+    val draft by viewModel.draft.collectAsStateWithLifecycle()
+    var number by remember(draft.phone) { mutableStateOf(draft.phone) }
+    val isSaved = draft.phone.length == 9 && number == draft.phone
+
+    JungleCard(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SuccessGreen.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Call, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Celular de contacto",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (draft.phone.length == 9) {
+                            "Tus pasajeros te llaman o escriben por WhatsApp con un toque"
+                        } else {
+                            "Sin celular tus pasajeros no podrán contactarte"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (draft.phone.length == 9) TextSecondary else GoldAccent
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = number,
+                onValueChange = { value -> number = value.filter { it.isDigit() }.take(9) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Número de celular", color = TextSecondary) },
+                placeholder = { Text("987654321", color = TextSecondary.copy(alpha = 0.5f)) },
+                prefix = { Text("+51 ", color = TextSecondary) },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GoldAccent,
+                    unfocusedBorderColor = JungleOutline,
+                    cursorColor = GoldAccent,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedLabelColor = GoldAccent
+                )
+            )
+
+            Button(
+                onClick = { viewModel.saveDriverContact(contactPhone = number, payoutPhone = null) },
+                enabled = number.length == 9 && !isSaved,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GoldAccent,
+                    contentColor = JungleDeep,
+                    disabledContainerColor = JungleSurfaceHigh,
+                    disabledContentColor = TextSecondary
+                )
+            ) {
+                if (isSaved) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = if (isSaved) "Celular guardado" else "Guardar celular",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

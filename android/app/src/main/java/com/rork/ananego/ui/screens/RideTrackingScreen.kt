@@ -249,6 +249,16 @@ fun RideTrackingScreen(
             } else {
                 DriverCard(
                     ride = ride,
+                    onCall = {
+                        if (!RideActions.call(context, driverPhone)) {
+                            Log.w("RideTracking", "No se pudo abrir el marcador")
+                        }
+                    },
+                    onWhatsApp = {
+                        if (!RideActions.whatsapp(context, driverPhone, "Hola, soy tu pasajero de Añane Go.")) {
+                            Log.w("RideTracking", "No se pudo abrir WhatsApp")
+                        }
+                    },
                     onShare = {
                         if (!RideActions.shareTrip(context, ride)) {
                             Log.w("RideTracking", "No se pudo abrir WhatsApp para compartir")
@@ -484,8 +494,15 @@ private fun OfferCard(
 }
 
 @Composable
-private fun DriverCard(ride: Ride, onShare: () -> Unit, modifier: Modifier = Modifier) {
+private fun DriverCard(
+    ride: Ride,
+    onCall: () -> Unit,
+    onWhatsApp: () -> Unit,
+    onShare: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val driver = ride.driver ?: return
+    val hasPhone = driver.phone.filter { it.isDigit() }.length >= 9
     JungleCard(modifier = modifier.fillMaxWidth()) {
       Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
@@ -579,6 +596,51 @@ private fun DriverCard(ride: Ride, onShare: () -> Unit, modifier: Modifier = Mod
                 Spacer(Modifier.width(8.dp))
                 Text("Compartir viaje", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
             }
+        }
+
+        // One-tap contact straight to the driver's registered mobile.
+        if (hasPhone) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onCall,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent, contentColor = JungleDeep)
+                ) {
+                    Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Llamar", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onWhatsApp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen, contentColor = Color.White)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("WhatsApp", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                }
+            }
+            Text(
+                text = "Cel. ${formatPhone(driver.phone)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        } else {
+            Text(
+                text = if (driver.isSimulated) {
+                    "Conductor demo: sin celular para contactar."
+                } else {
+                    "Este conductor aún no registró su celular."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
         }
       }
     }

@@ -472,17 +472,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Saves the driver's Yape / Plin number without resending the document review. */
     fun savePayoutPhone(phone: String) {
-        val digits = phone.filter { it.isDigit() }.take(9)
-        registrationDraft.update { it.copy(payoutPhone = digits) }
+        saveDriverContact(contactPhone = null, payoutPhone = phone)
+    }
+
+    /**
+     * Saves the driver's contact mobile (used by the passenger's Llamar / WhatsApp
+     * buttons) and/or Yape / Plin number instantly. The approval status is kept.
+     */
+    fun saveDriverContact(contactPhone: String?, payoutPhone: String?) {
+        val contact = contactPhone?.filter { it.isDigit() }?.take(9)
+        val payout = payoutPhone?.filter { it.isDigit() }?.take(9)
+        registrationDraft.update { draft ->
+            draft.copy(
+                phone = contact ?: draft.phone,
+                payoutPhone = payout ?: draft.payoutPhone
+            )
+        }
         viewModelScope.launch {
             val response = backend.command(
                 "payout",
-                withUser(buildJsonObject { put("payoutPhone", JsonPrimitive(digits)) })
+                withUser(
+                    buildJsonObject {
+                        contact?.let { put("phone", JsonPrimitive(it)) }
+                        payout?.let { put("payoutPhone", JsonPrimitive(it)) }
+                    }
+                )
             )
             response.snapshot?.let(::applySnapshot)
-            _uiState.update {
-                it.copy(lastMessage = response.notice ?: "Número de Yape / Plin guardado")
+            if (response.snapshot != null) startRegistrationDraft()
+            val saved = when {
+                contact != null && payout != null -> "Celular y número de cobro guardados"
+                contact != null -> "Celular guardado · tus pasajeros ya pueden llamarte"
+                else -> "Número de Yape / Plin guardado"
             }
+            _uiState.update { it.copy(lastMessage = response.notice ?: saved) }
         }
     }
 

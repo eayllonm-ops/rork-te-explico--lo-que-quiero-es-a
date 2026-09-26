@@ -185,7 +185,11 @@ fun DriverRegistrationScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     AnimatedVisibility(visible = !draft.isComplete) {
                         Text(
-                            text = "Completa tus datos y sube las fotos de tus documentos.",
+                            text = if (draft.phone.length != 9) {
+                                "Ingresa tu celular de 9 dígitos: es obligatorio para que el pasajero te contacte."
+                            } else {
+                                "Completa tus datos y sube las fotos de tus documentos."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary,
                             modifier = Modifier.padding(bottom = 10.dp)
@@ -300,7 +304,7 @@ fun DriverRegistrationScreen(
                             val digits = value.filter { it.isDigit() }.take(9)
                             viewModel.updateDraft { it.copy(phone = digits) }
                         },
-                        label = "Celular (para que el pasajero te llame)",
+                        label = "Celular * (obligatorio, para que el pasajero te llame)",
                         keyboardType = KeyboardType.Phone
                     )
                 }

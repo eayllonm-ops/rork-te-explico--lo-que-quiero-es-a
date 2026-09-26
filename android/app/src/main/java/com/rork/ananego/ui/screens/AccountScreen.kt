@@ -223,11 +223,11 @@ fun AccountScreen(
                 Divider()
                 MenuRow(
                     icon = Icons.Filled.QrCode2,
-                    title = "Cobros con Yape / Plin",
+                    title = "Celular y cobros Yape / Plin",
                     subtitle = when {
-                        state.driverProfile.hasPaymentQr -> "QR cargado · los pasajeros te pagan al instante"
-                        state.driverProfile.payoutPhone.isNotBlank() -> "Número ${state.driverProfile.payoutPhone} · sube tu QR"
-                        else -> "Sube tu QR y número para cobrar sin efectivo"
+                        state.driverProfile.phone.length != 9 -> "Agrega tu celular para que los pasajeros te llamen"
+                        state.driverProfile.hasPaymentQr -> "Cel. ${state.driverProfile.phone} · QR cargado"
+                        else -> "Cel. ${state.driverProfile.phone} · sube tu QR de cobro"
                     },
                     onClick = onOpenPayout
                 )

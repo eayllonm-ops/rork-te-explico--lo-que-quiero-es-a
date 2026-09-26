@@ -31,8 +31,8 @@ android {
         applicationId = "com.rork.ananego"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
