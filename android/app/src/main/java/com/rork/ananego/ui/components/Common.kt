@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,6 +39,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.rork.ananego.R
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -68,39 +72,24 @@ fun JungleCard(
     )
 }
 
-/** Añane Go leaf mark drawn as vector art. */
+/** Official Añane Go logo badge (golden mototaxi + car over jungle leaves). */
 @Composable
-fun LeafMark(modifier: Modifier = Modifier, size: Dp = 34.dp) {
-    Canvas(modifier = modifier.size(size)) {
-        val w = this.size.width
-        val h = this.size.height
-        val leftLeaf = Path().apply {
-            moveTo(w * 0.46f, h * 0.95f)
-            cubicTo(w * 0.02f, h * 0.72f, w * 0.06f, h * 0.18f, w * 0.34f, h * 0.05f)
-            cubicTo(w * 0.52f, h * 0.30f, w * 0.56f, h * 0.68f, w * 0.46f, h * 0.95f)
-        }
-        drawPath(leftLeaf, color = SuccessGreen)
-        val rightLeaf = Path().apply {
-            moveTo(w * 0.48f, h * 0.95f)
-            cubicTo(w * 0.62f, h * 0.60f, w * 0.86f, h * 0.36f, w * 0.98f, h * 0.30f)
-            cubicTo(w * 0.96f, h * 0.72f, w * 0.76f, h * 0.94f, w * 0.48f, h * 0.95f)
-        }
-        drawPath(rightLeaf, color = GoldAccent)
-        drawLine(
-            color = JungleDeep.copy(alpha = 0.55f),
-            start = Offset(w * 0.46f, h * 0.95f),
-            end = Offset(w * 0.34f, h * 0.18f),
-            strokeWidth = w * 0.045f,
-            cap = StrokeCap.Round
-        )
-    }
+fun BrandLogo(modifier: Modifier = Modifier, size: Dp = 38.dp) {
+    Image(
+        painter = painterResource(id = R.drawable.ananego_logo),
+        contentDescription = "Logo de Añane Go",
+        contentScale = ContentScale.Fit,
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(size * 0.2f))
+    )
 }
 
 /** App word-mark with tagline, used in top bars. */
 @Composable
 fun BrandLockup(modifier: Modifier = Modifier, showTagline: Boolean = true) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        LeafMark(size = 34.dp)
+        BrandLogo(size = 38.dp)
         Spacer(Modifier.width(10.dp))
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
