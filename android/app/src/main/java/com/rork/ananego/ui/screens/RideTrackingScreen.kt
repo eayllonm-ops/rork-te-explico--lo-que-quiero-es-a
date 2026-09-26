@@ -64,7 +64,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.util.Log
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import com.rork.ananego.data.model.PaymentMethod
 import com.rork.ananego.data.model.Ride
+import com.rork.ananego.ui.components.RideActions
+import com.rork.ananego.ui.components.formatPhone
 import com.rork.ananego.data.model.RideOffer
 import com.rork.ananego.data.model.RidePreference
 import com.rork.ananego.data.model.RideStatus
@@ -157,8 +167,29 @@ fun RideTrackingScreen(
     onRejectOffer: (RideOffer) -> Unit,
     onPassengerCountChange: (Int) -> Unit,
     onTogglePreference: (RidePreference) -> Unit,
+    onShowPayment: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    var isContactOpen by remember { mutableStateOf(false) }
+    val driverPhone = ride.driver?.phone.orEmpty()
+
+    if (isContactOpen && ride.driver != null) {
+        ContactDialog(
+            driverName = ride.driver.name,
+            phone = driverPhone,
+            onCall = {
+                isContactOpen = false
+                RideActions.call(context, driverPhone)
+            },
+            onWhatsApp = {
+                isContactOpen = false
+                RideActions.whatsapp(context, driverPhone, "Hola, soy tu pasajero de Añane Go.")
+            },
+            onDismiss = { isContactOpen = false }
+        )
+    }
+
     Scaffold(
         modifier = modifier,
         containerColor = JungleCanvas,
@@ -192,7 +223,8 @@ fun RideTrackingScreen(
             BottomActions(
                 ride = ride,
                 onCancel = onCancel,
-                onAdvance = onAdvance
+                onAdvance = onAdvance,
+                onContact = { isContactOpen = true }
             )
         }
     ) { innerPadding ->
@@ -215,10 +247,22 @@ fun RideTrackingScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             } else {
-                DriverCard(ride = ride, modifier = Modifier.padding(horizontal = 16.dp))
+                DriverCard(
+                    ride = ride,
+                    onShare = {
+                        if (!RideActions.shareTrip(context, ride)) {
+                            Log.w("RideTracking", "No se pudo abrir WhatsApp para compartir")
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
 
-            TripSummary(ride = ride, modifier = Modifier.padding(horizontal = 16.dp))
+            TripSummary(
+                ride = ride,
+                onShowPayment = onShowPayment,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
 
             PreferencesBlock(
                 ride = ride,
@@ -440,11 +484,11 @@ private fun OfferCard(
 }
 
 @Composable
-private fun DriverCard(ride: Ride, modifier: Modifier = Modifier) {
+private fun DriverCard(ride: Ride, onShare: () -> Unit, modifier: Modifier = Modifier) {
     val driver = ride.driver ?: return
     JungleCard(modifier = modifier.fillMaxWidth()) {
+      Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
-            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             InitialsAvatar(initials = driver.initials, size = 64.dp, verified = driver.isVerified)
@@ -469,14 +513,14 @@ private fun DriverCard(ride: Ride, modifier: Modifier = Modifier) {
                     }
                 }
                 Text(
-                    text = "${driver.vehicleType.label} · ${driver.plate}",
+                    text = driver.vehicleLabel,
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RatingRow(rating = driver.rating)
                     Text(
-                        text = " · Llega en ${driver.etaMinutes} min",
+                        text = if (ride.status == RideStatus.ACCEPTED) " · Llega en ${driver.etaMinutes} min" else "",
                         style = MaterialTheme.typography.bodySmall,
                         color = GoldAccent
                     )
@@ -497,15 +541,117 @@ private fun DriverCard(ride: Ride, modifier: Modifier = Modifier) {
                 )
             }
         }
+
+        // Plate rendered like a Peruvian plate so it's easy to match on the street.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Placa", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Spacer(Modifier.height(4.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White,
+                    border = BorderStroke(2.dp, JungleDeep)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .width(128.dp)
+                                .height(6.dp)
+                                .background(Color(0xFF1E5E8C))
+                        )
+                        Text(
+                            text = driver.plate,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = JungleDeep,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+            OutlinedButton(
+                onClick = onShare,
+                modifier = Modifier.height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, SuccessGreen)
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Compartir viaje", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+      }
     }
 }
 
 @Composable
-private fun TripSummary(ride: Ride, modifier: Modifier = Modifier) {
+private fun ContactDialog(
+    driverName: String,
+    phone: String,
+    onCall: () -> Unit,
+    onWhatsApp: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val hasPhone = phone.isNotBlank()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = JungleSurface,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = TextSecondary,
+        title = { Text("Contactar a $driverName") },
+        text = {
+            Text(
+                if (hasPhone) {
+                    "Llama o escríbele por WhatsApp al ${formatPhone(phone)}."
+                } else {
+                    "Este conductor demo no tiene teléfono. Con conductores reales podrás llamar o escribir por WhatsApp."
+                }
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onWhatsApp, enabled = hasPhone) {
+                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("WhatsApp", color = if (hasPhone) SuccessGreen else TextSecondary, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCall, enabled = hasPhone) {
+                Icon(Icons.Filled.Call, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Llamar", color = if (hasPhone) GoldAccent else TextSecondary, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+@Composable
+private fun TripSummary(ride: Ride, onShowPayment: () -> Unit, modifier: Modifier = Modifier) {
     JungleCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             TripPoint(label = "Recojo", value = ride.origin.name, color = SuccessGreen)
             TripPoint(label = "Destino", value = ride.destination.name, color = GoldDeep)
+            if (ride.reference.isNotBlank()) {
+                TripPoint(label = "Referencia", value = ride.reference, color = TextSecondary)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Pago: ${ride.paymentMethod.label}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (ride.paymentMethod == PaymentMethod.YAPE_PLIN && ride.driver != null) {
+                    TextButton(onClick = onShowPayment) {
+                        Icon(Icons.Filled.QrCode2, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Ver QR de cobro", color = GoldAccent, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -682,7 +828,8 @@ private fun StepperButton(
 private fun BottomActions(
     ride: Ride,
     onCancel: () -> Unit,
-    onAdvance: () -> Unit
+    onAdvance: () -> Unit,
+    onContact: () -> Unit
 ) {
     Surface(color = JungleCanvas, tonalElevation = 0.dp) {
         Column(
@@ -712,7 +859,7 @@ private fun BottomActions(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
-                    onClick = { },
+                    onClick = onContact,
                     modifier = Modifier
                         .weight(1f)
                         .height(54.dp),
@@ -722,7 +869,7 @@ private fun BottomActions(
                 ) {
                     Icon(Icons.Filled.Call, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Llamar", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.labelLarge)
+                    Text("Contactar", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.labelLarge)
                 }
                 Button(
                     onClick = onCancel,

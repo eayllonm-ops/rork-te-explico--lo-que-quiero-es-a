@@ -4,6 +4,7 @@ import com.rork.ananego.data.model.Coordinate
 import com.rork.ananego.data.model.Driver
 import com.rork.ananego.data.model.DriverProfile
 import com.rork.ananego.data.model.PassengerProfile
+import com.rork.ananego.data.model.PaymentMethod
 import com.rork.ananego.data.model.Place
 import com.rork.ananego.data.model.Ride
 import com.rork.ananego.data.model.RideOffer
@@ -46,6 +47,9 @@ object SnapshotMapper {
         else -> VerificationStatus.NOT_STARTED
     }
 
+    fun paymentMethod(raw: String): PaymentMethod =
+        if (raw == "YAPE_PLIN") PaymentMethod.YAPE_PLIN else PaymentMethod.CASH
+
     fun preferences(raw: List<String>): Set<RidePreference> = raw.mapNotNull { name ->
         RidePreference.entries.firstOrNull { it.name == name }
     }.toSet()
@@ -62,7 +66,11 @@ object SnapshotMapper {
         distanceKm = dto.distanceKm,
         position = Coordinate(dto.lat, dto.lng),
         isVerified = dto.verified,
-        isSimulated = dto.simulated
+        isSimulated = dto.simulated,
+        vehicleModel = dto.vehicleModel,
+        phone = dto.phone,
+        payoutPhone = dto.payoutPhone,
+        hasPaymentQr = dto.hasPaymentQr
     )
 
     fun ride(dto: NetworkRide, serverTime: Long): Ride = Ride(
@@ -83,7 +91,9 @@ object SnapshotMapper {
         status = rideStatus(dto.status),
         passengerCount = dto.passengerCount,
         preferences = preferences(dto.preferences),
-        createdAtLabel = relativeLabel(dto.createdAt, serverTime)
+        createdAtLabel = relativeLabel(dto.createdAt, serverTime),
+        paymentMethod = paymentMethod(dto.paymentMethod),
+        reference = dto.reference
     )
 
     /** A ride seen from the driver side, shown in the incoming request feed. */
@@ -103,7 +113,9 @@ object SnapshotMapper {
         passengerCount = dto.passengerCount,
         preferences = preferences(dto.preferences),
         serviceKind = serviceKind(dto.serviceKind),
-        myOfferSoles = dto.myOffer
+        myOfferSoles = dto.myOffer,
+        paymentMethod = paymentMethod(dto.paymentMethod),
+        reference = dto.reference
     )
 
     /** An incoming counteroffer on the passenger's open request. */
@@ -145,7 +157,11 @@ object SnapshotMapper {
             hasVehicleCard = "VEHICLE_CARD" in photos || documents.hasVehicleCard,
             hasPlatePhoto = "PLATE" in photos,
             status = verificationStatus(dto.driverStatus),
-            rejectionReason = dto.rejectionReason
+            rejectionReason = dto.rejectionReason,
+            phone = dto.phone,
+            vehicleModel = dto.vehicleModel,
+            payoutPhone = dto.payoutPhone,
+            hasPaymentQr = "PAYMENT_QR" in photos
         )
     }
 

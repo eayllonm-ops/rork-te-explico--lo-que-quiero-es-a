@@ -61,6 +61,8 @@ import androidx.compose.runtime.DisposableEffect
 import com.rork.ananego.data.model.AppRole
 import com.rork.ananego.data.model.LocationStatus
 import com.rork.ananego.ui.components.BrandLockup
+import com.rork.ananego.ui.components.PaymentSheet
+import com.rork.ananego.ui.screens.PayoutScreen
 import com.rork.ananego.ui.screens.AccountScreen
 import com.rork.ananego.ui.screens.AdminReviewScreen
 import com.rork.ananego.ui.screens.DriverAvailabilityBar
@@ -87,6 +89,7 @@ private object Routes {
     const val REGISTRATION = "registration"
     const val SUBSCRIPTION = "subscription"
     const val ADMIN_REVIEW = "admin_review"
+    const val PAYOUT = "payout"
     const val REQUEST = "request/{requestId}"
     fun request(id: String): String = "request/$id"
 }
@@ -197,6 +200,13 @@ fun AppNavigation() {
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
+        state.paymentDue?.let { ride ->
+            PaymentSheet(
+                ride = ride,
+                qrUrl = ride.driver?.let { viewModel.paymentQrUrl(it.id) },
+                onDismiss = viewModel::dismissPayment
+            )
+        }
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
@@ -209,8 +219,8 @@ fun AppNavigation() {
                     onSelectService = viewModel::selectService,
                     onSearchChange = viewModel::updateSearchQuery,
                     onResolvePrediction = viewModel::resolvePlace,
-                    onRequestRide = { place, proposedFare ->
-                        viewModel.requestRide(place, proposedFare)
+                    onRequestRide = { place, proposedFare, paymentMethod, reference ->
+                        viewModel.requestRide(place, proposedFare, paymentMethod, reference)
                         navController.navigate(Routes.RIDE)
                     },
                     onOpenActiveRide = { navController.navigate(Routes.RIDE) },
@@ -233,7 +243,8 @@ fun AppNavigation() {
                     TripsScreen(
                         state = state,
                         contentPadding = innerPadding,
-                        onOpenActiveRide = { navController.navigate(Routes.RIDE) }
+                        onOpenActiveRide = { navController.navigate(Routes.RIDE) },
+                        onOpenPayment = viewModel::showPayment
                     )
                 }
             }
@@ -246,7 +257,8 @@ fun AppNavigation() {
                     onOpenRegistration = { navController.navigate(Routes.REGISTRATION) },
                     onOpenSubscription = { navController.navigate(Routes.SUBSCRIPTION) },
                     onSaveProfile = viewModel::savePassengerProfile,
-                    onOpenAdminReview = { navController.navigate(Routes.ADMIN_REVIEW) }
+                    onOpenAdminReview = { navController.navigate(Routes.ADMIN_REVIEW) },
+                    onOpenPayout = { navController.navigate(Routes.PAYOUT) }
                 )
             }
 
@@ -271,7 +283,8 @@ fun AppNavigation() {
                         onAcceptOffer = viewModel::acceptOffer,
                         onRejectOffer = viewModel::rejectOffer,
                         onPassengerCountChange = viewModel::setPassengerCount,
-                        onTogglePreference = viewModel::togglePreference
+                        onTogglePreference = viewModel::togglePreference,
+                        onShowPayment = { viewModel.showPayment(ride) }
                     )
                 }
             }
@@ -291,6 +304,13 @@ fun AppNavigation() {
                         viewModel.renewSubscription()
                         navController.popBackStack()
                     }
+                )
+            }
+
+            composable(Routes.PAYOUT) {
+                PayoutScreen(
+                    viewModel = viewModel,
+                    onClose = { navController.popBackStack() }
                 )
             }
 

@@ -35,6 +35,7 @@ const ACTIONS = new Set([
   "cancel-ride",
   "submit-verification",
   "verification-photo",
+  "payout",
   "renew-subscription",
   "admin-login",
   "admin-list",

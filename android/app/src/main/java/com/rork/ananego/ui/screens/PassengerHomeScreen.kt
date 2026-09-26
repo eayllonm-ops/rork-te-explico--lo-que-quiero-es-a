@@ -68,6 +68,15 @@ import com.rork.ananego.data.model.FareRules
 import com.rork.ananego.data.model.LocationStatus
 import com.rork.ananego.data.model.Place
 import com.rork.ananego.data.model.PlacePrediction
+import com.rork.ananego.data.model.PaymentMethod
+import com.rork.ananego.ui.components.PaymentMethodSelector
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.rork.ananego.data.model.ServiceKind
 import com.rork.ananego.data.model.VehicleType
 import com.rork.ananego.ui.components.CITY_ZOOM
@@ -105,7 +114,7 @@ fun PassengerHomeScreen(
     onSelectService: (ServiceKind) -> Unit,
     onSearchChange: (String) -> Unit,
     onResolvePrediction: suspend (PlacePrediction) -> Place?,
-    onRequestRide: (Place, Double) -> Unit,
+    onRequestRide: (Place, Double, PaymentMethod, String) -> Unit,
     onOpenActiveRide: () -> Unit,
     onOpenDriver: (Driver) -> Unit,
     onRequestLocationPermission: () -> Unit,
@@ -226,15 +235,21 @@ fun PassengerHomeScreen(
             state.mapCenter.distanceKmTo(place.position)
         )
         var amount by remember(place) { mutableStateOf(suggested) }
+        var paymentMethod by remember(place) { mutableStateOf(PaymentMethod.CASH) }
+        var reference by remember(place) { mutableStateOf("") }
         PriceProposalSheet(
             place = place,
             amount = amount,
             suggested = suggested,
             floor = FareRules.floorSoles(state.selectedService),
+            paymentMethod = paymentMethod,
+            reference = reference,
+            onPaymentChange = { paymentMethod = it },
+            onReferenceChange = { reference = it.take(120) },
             onAdjust = { delta -> amount = FareRules.clamp(amount + delta, state.selectedService) },
             onConfirm = {
                 pendingPlace = null
-                onRequestRide(place, amount)
+                onRequestRide(place, amount, paymentMethod, reference)
             },
             onDismiss = { pendingPlace = null }
         )
@@ -709,6 +724,10 @@ private fun PriceProposalSheet(
     amount: Double,
     suggested: Double,
     floor: Double,
+    paymentMethod: PaymentMethod,
+    reference: String,
+    onPaymentChange: (PaymentMethod) -> Unit,
+    onReferenceChange: (String) -> Unit,
     onAdjust: (Double) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
@@ -721,6 +740,8 @@ private fun PriceProposalSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -766,6 +787,52 @@ private fun PriceProposalSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
+
+            OutlinedTextField(
+                value = reference,
+                onValueChange = onReferenceChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Referencia (opcional)", color = TextSecondary) },
+                placeholder = {
+                    Text(
+                        "Ej: portón azul, frente a la loza deportiva",
+                        color = TextSecondary.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                leadingIcon = {
+                    Icon(Icons.Filled.Place, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GoldAccent,
+                    unfocusedBorderColor = JungleOutline,
+                    cursorColor = GoldAccent,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedLabelColor = GoldAccent
+                )
+            )
+
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "¿Cómo pagarás?",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                PaymentMethodSelector(selected = paymentMethod, onSelect = onPaymentChange)
+                if (paymentMethod == PaymentMethod.YAPE_PLIN) {
+                    Text(
+                        text = "Al terminar el viaje te mostramos el QR y número del conductor.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            }
 
             Button(
                 onClick = onConfirm,

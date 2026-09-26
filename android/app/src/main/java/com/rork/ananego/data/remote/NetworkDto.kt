@@ -41,7 +41,9 @@ data class NetworkProfile(
     val subscriptionExpiresAt: Long = 0L,
     val paidThisWeek: Double = 0.0,
     val uploadedPhotos: List<String> = emptyList(),
-    val rejectionReason: String = ""
+    val rejectionReason: String = "",
+    val vehicleModel: String = "",
+    val payoutPhone: String = ""
 )
 
 @Serializable
@@ -58,7 +60,11 @@ data class NetworkDriver(
     val distanceKm: Double = 0.0,
     val etaMinutes: Int = 1,
     val verified: Boolean = true,
-    val simulated: Boolean = false
+    val simulated: Boolean = false,
+    val vehicleModel: String = "",
+    val phone: String = "",
+    val payoutPhone: String = "",
+    val hasPaymentQr: Boolean = false
 )
 
 @Serializable
@@ -86,7 +92,9 @@ data class NetworkRide(
     val updatedAt: Long = 0L,
     val driver: NetworkDriver? = null,
     val myOffer: Double? = null,
-    val isMine: Boolean = false
+    val isMine: Boolean = false,
+    val paymentMethod: String = "CASH",
+    val reference: String = ""
 )
 
 /** A driver's counteroffer on the viewer's open request. */

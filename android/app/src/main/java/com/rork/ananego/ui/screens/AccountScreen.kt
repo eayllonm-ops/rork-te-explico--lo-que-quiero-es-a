@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -81,6 +82,8 @@ fun AccountScreen(
     onSaveProfile: (String, String, String) -> Unit,
     /** Opens the hidden, PIN-protected document review console. */
     onOpenAdminReview: () -> Unit = {},
+    /** Opens the driver's Yape / Plin setup. */
+    onOpenPayout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isEditingIdentity by remember { mutableStateOf(false) }
@@ -216,6 +219,17 @@ fun AccountScreen(
                         "Agrega tu nombre y DNI para viajar verificado"
                     },
                     onClick = { isEditingIdentity = true }
+                )
+                Divider()
+                MenuRow(
+                    icon = Icons.Filled.QrCode2,
+                    title = "Cobros con Yape / Plin",
+                    subtitle = when {
+                        state.driverProfile.hasPaymentQr -> "QR cargado · los pasajeros te pagan al instante"
+                        state.driverProfile.payoutPhone.isNotBlank() -> "Número ${state.driverProfile.payoutPhone} · sube tu QR"
+                        else -> "Sube tu QR y número para cobrar sin efectivo"
+                    },
+                    onClick = onOpenPayout
                 )
                 Divider()
                 MenuRow(

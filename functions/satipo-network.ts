@@ -33,6 +33,9 @@ export const PHOTO_KINDS: readonly PhotoKind[] = [
   "VEHICLE_CARD",
   "PLATE",
 ];
+/** Optional photos that are stored but never block the identity review. */
+const OPTIONAL_PHOTO_KINDS: readonly string[] = ["PAYMENT_QR"];
+export type PaymentMethod = "CASH" | "YAPE_PLIN";
 const PHOTO_LABELS: Record<string, string> = {
   PROFILE: "foto de perfil",
   DNI_FRONT: "DNI frente",
@@ -40,6 +43,13 @@ const PHOTO_LABELS: Record<string, string> = {
   VEHICLE_CARD: "tarjeta de propiedad",
   PLATE: "placa del vehículo",
 };
+/** Cleans a Peruvian mobile number down to its 9 digits (drops +51). */
+function cleanPhone(raw: unknown): string {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  const local = digits.length === 11 && digits.startsWith("51") ? digits.slice(2) : digits;
+  return local.slice(0, 9);
+}
+
 /** Rough cap (base64 characters) so one upload cannot blow up the SQL row. */
 const MAX_PHOTO_BASE64 = 3_000_000;
 
@@ -88,6 +98,8 @@ interface UserRow {
   paid_this_week: number;
   default_passenger_count: number;
   default_preferences: string;
+  payout_phone: string;
+  vehicle_model: string;
   lat: number | null;
   lng: number | null;
   is_online: number;
@@ -114,6 +126,8 @@ interface RideRow {
   created_at: number;
   updated_at: number;
   stage_at: number;
+  payment_method: string;
+  reference: string;
 }
 
 interface PhotoRow {
@@ -137,6 +151,7 @@ interface SimRow {
   trip_count: number;
   vehicle_type: string;
   plate: string;
+  vehicle_model?: string;
   lat: number;
   lng: number;
   target_lat: number;
@@ -214,14 +229,19 @@ const SIM_SEED: ReadonlyArray<{
   trips: number;
   vehicleType: VehicleType;
   plate: string;
+  model: string;
 }> = [
-  { name: "Elmer Quispe", rating: 4.9, trips: 1284, vehicleType: "MOTOTAXI", plate: "M1-2483" },
-  { name: "Rosa Camarena", rating: 4.8, trips: 962, vehicleType: "MOTOTAXI", plate: "M3-7741" },
-  { name: "Javier Ñaupari", rating: 4.7, trips: 640, vehicleType: "MOTOTAXI", plate: "M2-1190" },
-  { name: "Lucía Marín", rating: 5.0, trips: 418, vehicleType: "MOTOTAXI", plate: "M4-3025" },
-  { name: "Carlos Bardales", rating: 4.9, trips: 1533, vehicleType: "INTERCITY_CAR", plate: "V6L-882" },
-  { name: "Teresa Ponce", rating: 4.8, trips: 727, vehicleType: "INTERCITY_CAR", plate: "W2K-450" },
+  { name: "Elmer Quispe", rating: 4.9, trips: 1284, vehicleType: "MOTOTAXI", plate: "M1-2483", model: "Bajaj RE" },
+  { name: "Rosa Camarena", rating: 4.8, trips: 962, vehicleType: "MOTOTAXI", plate: "M3-7741", model: "TVS King" },
+  { name: "Javier Ñaupari", rating: 4.7, trips: 640, vehicleType: "MOTOTAXI", plate: "M2-1190", model: "Honda Cargo" },
+  { name: "Lucía Marín", rating: 5.0, trips: 418, vehicleType: "MOTOTAXI", plate: "M4-3025", model: "Bajaj RE" },
+  { name: "Carlos Bardales", rating: 4.9, trips: 1533, vehicleType: "INTERCITY_CAR", plate: "V6L-882", model: "Toyota Yaris" },
+  { name: "Teresa Ponce", rating: 4.8, trips: 727, vehicleType: "INTERCITY_CAR", plate: "W2K-450", model: "Hyundai Accent" },
 ];
+
+function simModel(plate: string): string {
+  return SIM_SEED.find((seed) => seed.plate === plate)?.model ?? "";
+}
 
 export class SatipoNetwork extends DurableObject<Env> {
   private heartbeat: ReturnType<typeof setTimeout> | null = null;
@@ -258,11 +278,18 @@ export class SatipoNetwork extends DurableObject<Env> {
         last_seen_at INTEGER NOT NULL DEFAULT 0
       )
     `);
-    // Older deployments created the users table without the rejection column.
-    try {
-      sql.exec("ALTER TABLE users ADD COLUMN driver_rejection_reason TEXT NOT NULL DEFAULT ''");
-    } catch {
-      // Column already exists.
+    // Older deployments created the tables without these columns.
+    const migrations = [
+      "ALTER TABLE users ADD COLUMN driver_rejection_reason TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN payout_phone TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN vehicle_model TEXT NOT NULL DEFAULT ''",
+    ];
+    for (const statement of migrations) {
+      try {
+        sql.exec(statement);
+      } catch {
+        // Column already exists.
+      }
     }
     sql.exec(`
       CREATE TABLE IF NOT EXISTS offers (
@@ -294,9 +321,21 @@ export class SatipoNetwork extends DurableObject<Env> {
         preferences TEXT NOT NULL DEFAULT '[]',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
-        stage_at INTEGER NOT NULL DEFAULT 0
+        stage_at INTEGER NOT NULL DEFAULT 0,
+        payment_method TEXT NOT NULL DEFAULT 'CASH',
+        reference TEXT NOT NULL DEFAULT ''
       )
     `);
+    for (const statement of [
+      "ALTER TABLE rides ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'CASH'",
+      "ALTER TABLE rides ADD COLUMN reference TEXT NOT NULL DEFAULT ''",
+    ]) {
+      try {
+        sql.exec(statement);
+      } catch {
+        // Column already exists.
+      }
+    }
     sql.exec(`
       CREATE TABLE IF NOT EXISTS declines (
         ride_id TEXT NOT NULL,
@@ -546,6 +585,8 @@ export class SatipoNetwork extends DurableObject<Env> {
         return this.submitVerification(userId, body);
       case "verification-photo":
         return this.storePhoto(userId, body);
+      case "payout":
+        return this.updatePayout(userId, body);
       case "renew-subscription":
         return this.renewSubscription(userId);
       case "sync":
@@ -651,6 +692,13 @@ export class SatipoNetwork extends DurableObject<Env> {
     const plate = typeof body.plate === "string" ? body.plate.trim() : "";
     const vehicleType: VehicleType = body.vehicleType === "INTERCITY_CAR" ? "INTERCITY_CAR" : "MOTOTAXI";
     if (!name || dni.length < 8 || !plate) return "Faltan datos obligatorios en tu registro";
+    const current = this.user(userId);
+    const phone = body.phone !== undefined ? cleanPhone(body.phone) : current.phone;
+    if (phone.length !== 9) return "Ingresa tu número de celular (9 dígitos)";
+    const vehicleModel = typeof body.vehicleModel === "string"
+      ? body.vehicleModel.trim().slice(0, 40)
+      : current.vehicle_model;
+    const payoutPhone = body.payoutPhone !== undefined ? cleanPhone(body.payoutPhone) : current.payout_phone;
 
     // Official review needs the real document photos on file, not just ticked boxes.
     const uploaded = new Set(this.photoKinds(userId));
@@ -660,16 +708,29 @@ export class SatipoNetwork extends DurableObject<Env> {
     }
 
     this.ctx.storage.sql.exec(
-      `UPDATE users SET name = ?, dni = ?, plate = ?, vehicle_type = ?, role = 'DRIVER',
-         driver_status = 'PENDING', driver_rejection_reason = '',
+      `UPDATE users SET name = ?, dni = ?, plate = ?, vehicle_type = ?, phone = ?, vehicle_model = ?,
+         payout_phone = ?, role = 'DRIVER', driver_status = 'PENDING', driver_rejection_reason = '',
          driver_submitted_at = ?, is_verified = 1 WHERE id = ?`,
       name,
       dni,
       plate,
       vehicleType,
+      phone,
+      vehicleModel,
+      payoutPhone,
       Date.now(),
       userId,
     );
+    return null;
+  }
+
+  /** Saves the driver's Yape / Plin number without resetting their review. */
+  private updatePayout(userId: string, body: Record<string, unknown>): string | null {
+    const payoutPhone = cleanPhone(body.payoutPhone);
+    if (payoutPhone.length !== 0 && payoutPhone.length !== 9) {
+      return "El número de Yape / Plin debe tener 9 dígitos";
+    }
+    this.ctx.storage.sql.exec("UPDATE users SET payout_phone = ? WHERE id = ?", payoutPhone, userId);
     return null;
   }
 
@@ -681,7 +742,9 @@ export class SatipoNetwork extends DurableObject<Env> {
     const data = typeof body.image === "string" ? body.image : "";
     const mime = String(body.mime ?? "image/jpeg");
 
-    if (!PHOTO_KINDS.includes(kind)) return "Ese documento no es válido";
+    if (!PHOTO_KINDS.includes(kind) && !OPTIONAL_PHOTO_KINDS.includes(kind)) {
+      return "Ese documento no es válido";
+    }
     if (!data) return "No pudimos leer la foto, intenta de nuevo";
     if (data.length > MAX_PHOTO_BASE64) return "La foto es muy pesada, toma una más cercana";
     if (!/^image\/(jpeg|png|webp)$/.test(mime)) return "Formato de imagen no soportado";
@@ -774,12 +837,14 @@ export class SatipoNetwork extends DurableObject<Env> {
       : estimateFare(service, km, destName);
     const now = Date.now();
     const id = `ride_${now.toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const paymentMethod: PaymentMethod = body.paymentMethod === "YAPE_PLIN" ? "YAPE_PLIN" : "CASH";
+    const reference = String(body.reference ?? "").trim().slice(0, 120);
 
     this.ctx.storage.sql.exec(
       `INSERT INTO rides (id, passenger_id, driver_id, service_kind, origin_name, origin_lat,
          origin_lng, dest_name, dest_detail, dest_lat, dest_lng, fare, distance_km, status,
-         passenger_count, preferences, created_at, updated_at, stage_at)
-       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SEARCHING', ?, ?, ?, ?, ?)`,
+         passenger_count, preferences, created_at, updated_at, stage_at, payment_method, reference)
+       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SEARCHING', ?, ?, ?, ?, ?, ?, ?)`,
       id,
       userId,
       service,
@@ -799,6 +864,8 @@ export class SatipoNetwork extends DurableObject<Env> {
       now,
       now,
       now,
+      paymentMethod,
+      reference,
     );
     return null;
   }
@@ -1401,6 +1468,7 @@ export class SatipoNetwork extends DurableObject<Env> {
       tripCount: row.trip_count,
       vehicleType,
       plate: row.plate,
+      vehicleModel: isSim ? simModel(row.plate) : row.vehicle_model ?? "",
       lat,
       lng,
       distanceKm: km,
@@ -1417,6 +1485,17 @@ export class SatipoNetwork extends DurableObject<Env> {
 
     if (ride.driver_id) {
       driver = this.driverById(ride.driver_id, { lat: ride.origin_lat, lng: ride.origin_lng });
+      // Only the passenger of this ride gets the driver's phone, for the contact buttons.
+      // Payout details (Yape / Plin number + QR) travel only in this ride payload.
+      if (driver && viewerId === ride.passenger_id && !ride.driver_id.startsWith("sim_")) {
+        const assigned = this.user(ride.driver_id);
+        driver = {
+          ...driver,
+          phone: assigned.phone,
+          payoutPhone: assigned.payout_phone || assigned.phone,
+          hasPaymentQr: this.photoKinds(ride.driver_id).includes("PAYMENT_QR"),
+        };
+      }
     }
 
     return {
@@ -1441,6 +1520,8 @@ export class SatipoNetwork extends DurableObject<Env> {
       preferences: JSON.parse(ride.preferences || "[]") as string[],
       createdAt: ride.created_at,
       updatedAt: ride.updated_at,
+      paymentMethod: ride.payment_method || "CASH",
+      reference: ride.reference ?? "",
       driver,
       myOffer: this.myOfferAmount(ride.id, viewerId),
       isMine: ride.passenger_id === viewerId || ride.driver_id === viewerId,
@@ -1554,6 +1635,8 @@ export class SatipoNetwork extends DurableObject<Env> {
         defaultPreferences: JSON.parse(user.default_preferences || "[]") as string[],
         vehicleType: user.vehicle_type,
         plate: user.plate,
+        vehicleModel: user.vehicle_model ?? "",
+        payoutPhone: user.payout_phone ?? "",
         driverStatus: user.driver_status as VerificationStatus,
         rejectionReason: user.driver_rejection_reason ?? "",
         isOnline: user.is_online === 1,

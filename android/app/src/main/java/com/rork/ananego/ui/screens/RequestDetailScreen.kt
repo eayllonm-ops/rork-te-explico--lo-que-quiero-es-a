@@ -245,6 +245,10 @@ fun RequestDetailScreen(
 
                     InfoRow(label = "Recojo", value = request.originName, dotColor = SuccessGreen)
                     InfoRow(label = "Destino", value = request.destinationName, dotColor = GoldDeep)
+                    if (request.reference.isNotBlank()) {
+                        InfoRow(label = "Referencia", value = request.reference, dotColor = TextSecondary)
+                    }
+                    InfoRow(label = "Pago", value = request.paymentMethod.label, dotColor = GoldAccent)
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),

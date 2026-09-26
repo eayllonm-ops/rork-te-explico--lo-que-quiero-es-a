@@ -17,6 +17,7 @@ import com.rork.ananego.data.model.DriverProfile
 import com.rork.ananego.data.model.FareRules
 import com.rork.ananego.data.model.LocationStatus
 import com.rork.ananego.data.model.PassengerProfile
+import com.rork.ananego.data.model.PaymentMethod
 import com.rork.ananego.data.model.Place
 import com.rork.ananego.data.model.PlacePrediction
 import com.rork.ananego.data.model.Ride
@@ -76,7 +77,9 @@ data class AppUiState(
     val isDriverOnline: Boolean = false,
     val isRequestingRide: Boolean = false,
     val uploadingPhotos: Set<VerificationPhoto> = emptySet(),
-    val lastMessage: String? = null
+    val lastMessage: String? = null,
+    /** A just-finished trip the passenger still has to pay (shows the QR / cash sheet). */
+    val paymentDue: Ride? = null
 ) {
     /** Live GPS position when available, Satipo's plaza as a safe fallback. */
     val mapCenter: Coordinate get() = userLocation ?: SampleData.satipoCenter
@@ -214,7 +217,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val documents = session.readDocuments()
         _uiState.update { state ->
             val activeRide = snapshot.activeRide?.let { SnapshotMapper.ride(it, snapshot.serverTime) }
+            // When the passenger's ride leaves the active slot as COMPLETED, surface the payment sheet.
+            val finishedId = state.activeRide?.id?.takeIf { it != activeRide?.id }
+            val justCompleted = finishedId?.let { id ->
+                snapshot.history.firstOrNull {
+                    it.id == id && it.status == "COMPLETED" && it.passengerId == session.userId
+                }
+            }?.let { SnapshotMapper.ride(it, snapshot.serverTime) }
             state.copy(
+                paymentDue = justCompleted ?: state.paymentDue,
                 connection = ConnectionStatus.LIVE,
                 nearbyDrivers = snapshot.drivers.map(SnapshotMapper::driver),
                 liveRequests = snapshot.openRides.map { SnapshotMapper.request(it, snapshot.serverTime) },
@@ -243,7 +254,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 hasDniFront = draft.hasDniFront || "DNI_FRONT" in storedPhotos,
                 hasDniBack = draft.hasDniBack || "DNI_BACK" in storedPhotos,
                 hasVehicleCard = draft.hasVehicleCard || "VEHICLE_CARD" in storedPhotos,
-                hasPlatePhoto = draft.hasPlatePhoto || "PLATE" in storedPhotos
+                hasPlatePhoto = draft.hasPlatePhoto || "PLATE" in storedPhotos,
+                hasPaymentQr = "PAYMENT_QR" in storedPhotos
             )
         }
     }
@@ -373,8 +385,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value.mapCenter.distanceKmTo(destination.position)
     )
 
-    /** Publishes a ride request with the passenger's own price. */
-    fun requestRide(destination: Place, proposedFare: Double) {
+    /** Publishes a ride request with the passenger's own price, payment choice and landmark. */
+    fun requestRide(
+        destination: Place,
+        proposedFare: Double,
+        paymentMethod: PaymentMethod = PaymentMethod.CASH,
+        reference: String = ""
+    ) {
         val state = _uiState.value
         if (state.activeRide != null) {
             _uiState.update { it.copy(lastMessage = "Ya tienes un viaje en curso") }
@@ -397,6 +414,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 put("destDetail", JsonPrimitive(destination.detail))
                 put("destLat", JsonPrimitive(destination.position.latitude))
                 put("destLng", JsonPrimitive(destination.position.longitude))
+                put("paymentMethod", JsonPrimitive(paymentMethod.name))
+                put("reference", JsonPrimitive(reference.trim().take(120)))
                 put("passengerCount", JsonPrimitive(state.passenger.defaultPassengerCount))
                 put(
                     "preferences",
@@ -436,6 +455,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 put("preferences", JsonArray(next.map { JsonPrimitive(it.name) }))
             }
         )
+    }
+
+    /** Opens the payment sheet again for a trip (e.g. from the ride screen or history). */
+    fun showPayment(ride: Ride) {
+        _uiState.update { it.copy(paymentDue = ride) }
+    }
+
+    fun dismissPayment() {
+        _uiState.update { it.copy(paymentDue = null) }
+    }
+
+    /** Public URL of a driver's Yape / Plin QR image. */
+    fun paymentQrUrl(driverId: String): String =
+        backend.verificationPhotoUrl(driverId, VerificationPhoto.PAYMENT_QR.name)
+
+    /** Saves the driver's Yape / Plin number without resending the document review. */
+    fun savePayoutPhone(phone: String) {
+        val digits = phone.filter { it.isDigit() }.take(9)
+        registrationDraft.update { it.copy(payoutPhone = digits) }
+        viewModelScope.launch {
+            val response = backend.command(
+                "payout",
+                withUser(buildJsonObject { put("payoutPhone", JsonPrimitive(digits)) })
+            )
+            response.snapshot?.let(::applySnapshot)
+            _uiState.update {
+                it.copy(lastMessage = response.notice ?: "Número de Yape / Plin guardado")
+            }
+        }
     }
 
     fun advanceRide() {
@@ -558,6 +606,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.update { it.copy(uploadingPhotos = it.uploadingPhotos - kind) }
             response.snapshot?.let(::applySnapshot)
             val message = when {
+                response.ok && kind == VerificationPhoto.PAYMENT_QR -> "QR de cobro guardado"
                 response.ok -> "${kind.label} enviada para revisión"
                 response.notice != null -> response.notice!!
                 else -> "No pudimos subir la foto. Revisa tu conexión."
@@ -589,6 +638,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 put("dni", JsonPrimitive(profile.dni))
                 put("plate", JsonPrimitive(profile.plate))
                 put("vehicleType", JsonPrimitive(profile.vehicleType.name))
+                put("phone", JsonPrimitive(profile.phone))
+                put("vehicleModel", JsonPrimitive(profile.vehicleModel.trim()))
+                put("payoutPhone", JsonPrimitive(profile.payoutPhone))
             }
         )
         return true

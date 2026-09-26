@@ -48,6 +48,7 @@ fun TripsScreen(
     state: AppUiState,
     contentPadding: PaddingValues,
     onOpenActiveRide: () -> Unit,
+    onOpenPayment: (Ride) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -134,16 +135,24 @@ fun TripsScreen(
         }
 
         items(state.rideHistory, key = { it.id }) { ride ->
-            HistoryRow(ride = ride, modifier = Modifier.padding(horizontal = 16.dp))
+            HistoryRow(
+                ride = ride,
+                onOpenPayment = { onOpenPayment(ride) },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
 }
 
 @Composable
-private fun HistoryRow(ride: Ride, modifier: Modifier = Modifier) {
+private fun HistoryRow(ride: Ride, onOpenPayment: () -> Unit, modifier: Modifier = Modifier) {
+    // Completed trips reopen the pay sheet (QR / number or cash amount).
+    val canPay = ride.status == RideStatus.COMPLETED && ride.driver != null
     JungleCard(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier
+                .then(if (canPay) Modifier.clickableCard(onOpenPayment) else Modifier)
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -157,10 +166,13 @@ private fun HistoryRow(ride: Ride, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
-                TagPill(
-                    text = ride.status.label,
-                    color = if (ride.status == RideStatus.CANCELLED) DangerRed else SuccessGreen
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TagPill(
+                        text = ride.status.label,
+                        color = if (ride.status == RideStatus.CANCELLED) DangerRed else SuccessGreen
+                    )
+                    TagPill(text = ride.paymentMethod.label, color = GoldAccent)
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(

@@ -22,6 +22,12 @@ enum class ServiceKind(val title: String, val subtitle: String) {
     INTERCITY("Auto de ruta", "Tarifa plana: Mazamari, Pangoa, Pichanaqui, La Merced, Huancayo, Lima")
 }
 
+/** How the passenger settles the fare with the driver (no in-app charge). */
+enum class PaymentMethod(val label: String) {
+    CASH("Efectivo"),
+    YAPE_PLIN("Yape / Plin")
+}
+
 /** Special-attention options a passenger can flag for a trip. */
 enum class RidePreference(val label: String) {
     WHEELCHAIR("Silla de ruedas"),
@@ -71,8 +77,19 @@ data class Driver(
     val position: Coordinate,
     val isVerified: Boolean = true,
     /** True for the demo fleet the service keeps running while Satipo signs up. */
-    val isSimulated: Boolean = false
-)
+    val isSimulated: Boolean = false,
+    /** Brand / model of the unit, e.g. "Bajaj RE". */
+    val vehicleModel: String = "",
+    /** Driver's mobile, only sent to the passenger of an assigned ride. */
+    val phone: String = "",
+    /** Yape / Plin number the passenger transfers to. */
+    val payoutPhone: String = "",
+    val hasPaymentQr: Boolean = false
+) {
+    /** "Mototaxi · Bajaj RE" or just the type when the model is unknown. */
+    val vehicleLabel: String
+        get() = if (vehicleModel.isBlank()) vehicleType.label else "${vehicleType.label} · $vehicleModel"
+}
 
 data class Place(
     val name: String,
@@ -111,7 +128,10 @@ data class Ride(
     val status: RideStatus,
     val passengerCount: Int,
     val preferences: Set<RidePreference>,
-    val createdAtLabel: String
+    val createdAtLabel: String,
+    val paymentMethod: PaymentMethod = PaymentMethod.CASH,
+    /** Optional landmark the passenger typed, e.g. "portón azul". */
+    val reference: String = ""
 )
 
 /** A driver's price for the passenger's open request, ready to accept. */
@@ -139,7 +159,9 @@ data class RideRequest(
     val preferences: Set<RidePreference>,
     val serviceKind: ServiceKind,
     /** This driver's live counteroffer for the request, if any. */
-    val myOfferSoles: Double? = null
+    val myOfferSoles: Double? = null,
+    val paymentMethod: PaymentMethod = PaymentMethod.CASH,
+    val reference: String = ""
 )
 
 enum class VerificationStatus(val label: String) {
@@ -158,7 +180,9 @@ enum class VerificationPhoto(val label: String) {
     DNI_FRONT("DNI frente"),
     DNI_BACK("DNI reverso"),
     VEHICLE_CARD("Tarjeta de propiedad"),
-    PLATE("Placa del vehículo")
+    PLATE("Placa del vehículo"),
+    /** Optional: the driver's Yape / Plin QR, shown to passengers to pay. */
+    PAYMENT_QR("QR de Yape / Plin")
 }
 
 data class DriverProfile(
@@ -173,11 +197,19 @@ data class DriverProfile(
     val hasPlatePhoto: Boolean = false,
     val status: VerificationStatus = VerificationStatus.NOT_STARTED,
     /** Why the last review was rejected, shown so the driver can fix it. */
-    val rejectionReason: String = ""
+    val rejectionReason: String = "",
+    /** Mobile the passenger calls or messages on WhatsApp. */
+    val phone: String = "",
+    val vehicleModel: String = "",
+    /** Yape / Plin number; falls back to [phone] when empty. */
+    val payoutPhone: String = "",
+    val hasPaymentQr: Boolean = false
 ) {
     val isComplete: Boolean
         get() = fullName.isNotBlank() &&
             dni.length >= 8 &&
+            phone.length == 9 &&
+            vehicleModel.isNotBlank() &&
             plate.isNotBlank() &&
             hasProfilePhoto &&
             hasDniFront &&

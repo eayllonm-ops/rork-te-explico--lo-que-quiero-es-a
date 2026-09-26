@@ -294,6 +294,15 @@ fun DriverRegistrationScreen(
                         label = "Número de DNI",
                         keyboardType = KeyboardType.Number
                     )
+                    JungleTextField(
+                        value = draft.phone,
+                        onValueChange = { value ->
+                            val digits = value.filter { it.isDigit() }.take(9)
+                            viewModel.updateDraft { it.copy(phone = digits) }
+                        },
+                        label = "Celular (para que el pasajero te llame)",
+                        keyboardType = KeyboardType.Phone
+                    )
                 }
             }
 
@@ -347,6 +356,14 @@ fun DriverRegistrationScreen(
                         label = "AB-1234",
                         capitalization = KeyboardCapitalization.Characters
                     )
+                    JungleTextField(
+                        value = draft.vehicleModel,
+                        onValueChange = { value ->
+                            viewModel.updateDraft { it.copy(vehicleModel = value.take(40)) }
+                        },
+                        label = "Marca y modelo (ej: Bajaj RE)",
+                        capitalization = KeyboardCapitalization.Words
+                    )
                     CaptureSlot(
                         kind = VerificationPhoto.PLATE,
                         icon = Icons.Filled.PhotoCamera,
@@ -386,6 +403,8 @@ fun DriverRegistrationScreen(
                     }
                 }
             }
+
+            PayoutCard(viewModel = viewModel)
 
             ChecklistSummary(profile = draft)
 
@@ -714,7 +733,10 @@ private fun ChecklistSummary(profile: DriverProfile) {
         "DNI reverso" to profile.hasDniBack,
         "Tarjeta de propiedad" to profile.hasVehicleCard,
         "Foto de placa" to profile.hasPlatePhoto,
-        "Datos completos" to (profile.fullName.isNotBlank() && profile.dni.length >= 8 && profile.plate.isNotBlank())
+        "Datos completos" to (
+            profile.fullName.isNotBlank() && profile.dni.length >= 8 && profile.phone.length == 9 &&
+                profile.plate.isNotBlank() && profile.vehicleModel.isNotBlank()
+            )
     )
     JungleCard(modifier = Modifier.fillMaxWidth(), color = JungleSurface) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
