@@ -50,6 +50,11 @@ function cleanPhone(raw: unknown): string {
   return local.slice(0, 9);
 }
 
+/** Peruvian mobile: exactly 9 digits starting with 9. */
+function isValidMobile(phone: string): boolean {
+  return /^9\d{8}$/.test(phone);
+}
+
 /** Rough cap (base64 characters) so one upload cannot blow up the SQL row. */
 const MAX_PHOTO_BASE64 = 3_000_000;
 
@@ -694,7 +699,7 @@ export class SatipoNetwork extends DurableObject<Env> {
     if (!name || dni.length < 8 || !plate) return "Faltan datos obligatorios en tu registro";
     const current = this.user(userId);
     const phone = body.phone !== undefined ? cleanPhone(body.phone) : current.phone;
-    if (phone.length !== 9) return "Ingresa tu número de celular (9 dígitos)";
+    if (!isValidMobile(phone)) return "Ingresa un celular válido (9 dígitos, empieza con 9)";
     const vehicleModel = typeof body.vehicleModel === "string"
       ? body.vehicleModel.trim().slice(0, 40)
       : current.vehicle_model;
@@ -731,12 +736,12 @@ export class SatipoNetwork extends DurableObject<Env> {
   private updatePayout(userId: string, body: Record<string, unknown>): string | null {
     const current = this.user(userId);
     const phone = body.phone !== undefined ? cleanPhone(body.phone) : current.phone;
-    if (body.phone !== undefined && phone.length !== 9) {
-      return "Ingresa tu número de celular (9 dígitos)";
+    if (body.phone !== undefined && !isValidMobile(phone)) {
+      return "Ingresa un celular válido (9 dígitos, empieza con 9)";
     }
     const payoutPhone = body.payoutPhone !== undefined ? cleanPhone(body.payoutPhone) : current.payout_phone;
-    if (payoutPhone.length !== 0 && payoutPhone.length !== 9) {
-      return "El número de Yape / Plin debe tener 9 dígitos";
+    if (body.payoutPhone !== undefined && payoutPhone.length !== 0 && !isValidMobile(payoutPhone)) {
+      return "El número de Yape / Plin debe tener 9 dígitos y empezar con 9";
     }
     this.ctx.storage.sql.exec(
       "UPDATE users SET phone = ?, payout_phone = ? WHERE id = ?",

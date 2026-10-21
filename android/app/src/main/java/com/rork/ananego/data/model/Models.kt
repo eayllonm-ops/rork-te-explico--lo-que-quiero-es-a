@@ -208,7 +208,7 @@ data class DriverProfile(
     val isComplete: Boolean
         get() = fullName.isNotBlank() &&
             dni.length >= 8 &&
-            phone.length == 9 &&
+            phone.length == 9 && phone.first() == '9' &&
             vehicleModel.isNotBlank() &&
             plate.isNotBlank() &&
             hasProfilePhoto &&

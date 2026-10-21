@@ -58,6 +58,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.rork.ananego.data.model.VerificationPhoto
 import com.rork.ananego.ui.components.JungleCard
+import com.rork.ananego.ui.components.PeruPhone
+import com.rork.ananego.ui.components.PeruPhoneField
 import com.rork.ananego.ui.components.clickableCard
 import com.rork.ananego.ui.state.AppViewModel
 import com.rork.ananego.ui.theme.GoldAccent
@@ -124,7 +126,7 @@ fun PayoutScreen(
 fun ContactPhoneCard(viewModel: AppViewModel, modifier: Modifier = Modifier) {
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     var number by remember(draft.phone) { mutableStateOf(draft.phone) }
-    val isSaved = draft.phone.length == 9 && number == draft.phone
+    val isSaved = PeruPhone.isValid(draft.phone) && number == draft.phone
 
     JungleCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -146,42 +148,26 @@ fun ContactPhoneCard(viewModel: AppViewModel, modifier: Modifier = Modifier) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (draft.phone.length == 9) {
+                        text = if (PeruPhone.isValid(draft.phone)) {
                             "Tus pasajeros te llaman o escriben por WhatsApp con un toque"
                         } else {
                             "Sin celular tus pasajeros no podrán contactarte"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (draft.phone.length == 9) TextSecondary else GoldAccent
+                        color = if (PeruPhone.isValid(draft.phone)) TextSecondary else GoldAccent
                     )
                 }
             }
 
-            OutlinedTextField(
+            PeruPhoneField(
                 value = number,
-                onValueChange = { value -> number = value.filter { it.isDigit() }.take(9) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Número de celular", color = TextSecondary) },
-                placeholder = { Text("987654321", color = TextSecondary.copy(alpha = 0.5f)) },
-                prefix = { Text("+51 ", color = TextSecondary) },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GoldAccent,
-                    unfocusedBorderColor = JungleOutline,
-                    cursorColor = GoldAccent,
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedLabelColor = GoldAccent
-                )
+                onValueChange = { number = it },
+                label = "Número de celular"
             )
 
             Button(
                 onClick = { viewModel.saveDriverContact(contactPhone = number, payoutPhone = null) },
-                enabled = number.length == 9 && !isSaved,
+                enabled = PeruPhone.isValid(number) && !isSaved,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -326,30 +312,16 @@ fun PayoutCard(viewModel: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            OutlinedTextField(
+            PeruPhoneField(
                 value = number,
-                onValueChange = { value -> number = value.filter { it.isDigit() }.take(9) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Número Yape / Plin", color = TextSecondary) },
-                placeholder = { Text("987654321", color = TextSecondary.copy(alpha = 0.5f)) },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GoldAccent,
-                    unfocusedBorderColor = JungleOutline,
-                    cursorColor = GoldAccent,
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedLabelColor = GoldAccent
-                )
+                onValueChange = { number = it },
+                label = "Número Yape / Plin",
+                helper = "El celular asociado a tu Yape / Plin"
             )
 
             Button(
                 onClick = { viewModel.savePayoutPhone(number) },
-                enabled = number.length == 9 && number != draft.payoutPhone,
+                enabled = PeruPhone.isValid(number) && number != draft.payoutPhone,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),

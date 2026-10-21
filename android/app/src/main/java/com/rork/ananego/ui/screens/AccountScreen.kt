@@ -1,5 +1,8 @@
 package com.rork.ananego.ui.screens
 
+import com.rork.ananego.ui.components.PeruPhone
+import com.rork.ananego.ui.components.PeruPhoneField
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -225,7 +228,7 @@ fun AccountScreen(
                     icon = Icons.Filled.QrCode2,
                     title = "Celular y cobros Yape / Plin",
                     subtitle = when {
-                        state.driverProfile.phone.length != 9 -> "Agrega tu celular para que los pasajeros te llamen"
+                        !PeruPhone.isValid(state.driverProfile.phone) -> "Agrega tu celular para que los pasajeros te llamen"
                         state.driverProfile.hasPaymentQr -> "Cel. ${state.driverProfile.phone} · QR cargado"
                         else -> "Cel. ${state.driverProfile.phone} · sube tu QR de cobro"
                     },
@@ -331,9 +334,11 @@ private fun IdentityDialog(
     onSave: (String, String, String) -> Unit
 ) {
     var name by remember { mutableStateOf(initialName) }
-    var phone by remember { mutableStateOf(initialPhone) }
+    var phone by remember { mutableStateOf(PeruPhone.sanitize(initialPhone)) }
     var dni by remember { mutableStateOf(initialDni) }
-    val canSave = name.trim().length > 2 && dni.length >= 8
+    // Phone is optional for passengers, but if typed it must be a valid mobile.
+    val canSave = name.trim().length > 2 && dni.length >= 8 &&
+        (phone.isEmpty() || PeruPhone.isValid(phone))
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -358,11 +363,10 @@ private fun IdentityDialog(
                     label = "Nombres y apellidos",
                     capitalization = KeyboardCapitalization.Words
                 )
-                AccountField(
+                PeruPhoneField(
                     value = phone,
-                    onValueChange = { phone = it.filter { char -> char.isDigit() || char == '+' }.take(12) },
-                    label = "Celular",
-                    keyboardType = KeyboardType.Phone
+                    onValueChange = { phone = it },
+                    label = "Celular"
                 )
                 AccountField(
                     value = dni,

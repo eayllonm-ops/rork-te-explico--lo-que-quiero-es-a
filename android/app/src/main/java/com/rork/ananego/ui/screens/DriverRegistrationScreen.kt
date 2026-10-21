@@ -1,5 +1,8 @@
 package com.rork.ananego.ui.screens
 
+import com.rork.ananego.ui.components.PeruPhone
+import com.rork.ananego.ui.components.PeruPhoneField
+
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -185,8 +188,8 @@ fun DriverRegistrationScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     AnimatedVisibility(visible = !draft.isComplete) {
                         Text(
-                            text = if (draft.phone.length != 9) {
-                                "Ingresa tu celular de 9 dígitos: es obligatorio para que el pasajero te contacte."
+                            text = if (!PeruPhone.isValid(draft.phone)) {
+                                "Ingresa un celular válido (9 dígitos, empieza con 9): es obligatorio para que el pasajero te contacte."
                             } else {
                                 "Completa tus datos y sube las fotos de tus documentos."
                             },
@@ -298,14 +301,11 @@ fun DriverRegistrationScreen(
                         label = "Número de DNI",
                         keyboardType = KeyboardType.Number
                     )
-                    JungleTextField(
+                    PeruPhoneField(
                         value = draft.phone,
-                        onValueChange = { value ->
-                            val digits = value.filter { it.isDigit() }.take(9)
-                            viewModel.updateDraft { it.copy(phone = digits) }
-                        },
-                        label = "Celular * (obligatorio, para que el pasajero te llame)",
-                        keyboardType = KeyboardType.Phone
+                        onValueChange = { digits -> viewModel.updateDraft { it.copy(phone = digits) } },
+                        label = "Celular * (obligatorio)",
+                        helper = "Para que el pasajero te llame · empieza con 9"
                     )
                 }
             }
@@ -738,7 +738,7 @@ private fun ChecklistSummary(profile: DriverProfile) {
         "Tarjeta de propiedad" to profile.hasVehicleCard,
         "Foto de placa" to profile.hasPlatePhoto,
         "Datos completos" to (
-            profile.fullName.isNotBlank() && profile.dni.length >= 8 && profile.phone.length == 9 &&
+            profile.fullName.isNotBlank() && profile.dni.length >= 8 && PeruPhone.isValid(profile.phone) &&
                 profile.plate.isNotBlank() && profile.vehicleModel.isNotBlank()
             )
     )
