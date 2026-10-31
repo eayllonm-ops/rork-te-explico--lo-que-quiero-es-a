@@ -1,6 +1,8 @@
 package com.rork.ananego.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -19,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.rork.ananego.data.model.Driver
@@ -103,20 +107,22 @@ fun DriverRow(
     }
 }
 
-/** Compact map pin for a driver's vehicle. */
+/** Compact map pin for a driver's vehicle: green for mototaxis, gold for cars. */
 @Composable
 fun VehiclePin(vehicleType: VehicleType, modifier: Modifier = Modifier) {
+    val isMototaxi = vehicleType == VehicleType.MOTOTAXI
     androidx.compose.material3.Surface(
         modifier = modifier.size(40.dp),
-        shape = androidx.compose.foundation.shape.CircleShape,
-        color = GoldAccent,
+        shape = CircleShape,
+        color = if (isMototaxi) SuccessGreen else GoldAccent,
+        border = BorderStroke(2.dp, Color.White),
         shadowElevation = 6.dp
     ) {
-        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+        Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = vehicleType.icon(),
                 contentDescription = vehicleType.label,
-                tint = com.rork.ananego.ui.theme.JungleDeep,
+                tint = if (isMototaxi) Color.White else com.rork.ananego.ui.theme.JungleDeep,
                 modifier = Modifier.size(22.dp)
             )
         }

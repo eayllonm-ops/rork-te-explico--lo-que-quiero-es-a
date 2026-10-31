@@ -103,6 +103,9 @@ import com.rork.ananego.ui.theme.SuccessGreen
 import com.rork.ananego.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
+/** Driver pins drawn on the request-screen map; the closest ones win. */
+private const val MAX_MAP_DRIVER_PINS = 8
+
 /**
  * Passenger home: stylized Satipo map, destination search, service choice
  * between local mototaxi and intercity car, and nearby verified drivers.
@@ -282,7 +285,8 @@ private fun MapHeader(
             userLocation = state.userLocation,
             onMapLoaded = { isMapLoaded = true }
         ) {
-            state.filteredDrivers.forEach { driver ->
+            // Only the nearest handful keeps the map readable; the full list stays below.
+            state.filteredDrivers.take(MAX_MAP_DRIVER_PINS).forEach { driver ->
                 MapMarker(
                     position = driver.position,
                     driver.id,
