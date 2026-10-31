@@ -3,7 +3,9 @@ package com.rork.ananego.ui.components
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -65,7 +67,7 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberUpdatedMarkerState
+import com.google.maps.android.compose.rememberMarkerState
 import com.rork.ananego.data.installedSigningSha1
 import com.rork.ananego.data.model.Coordinate
 import com.rork.ananego.ui.theme.GoldAccent
@@ -316,9 +318,18 @@ private fun RouteLine(from: Coordinate, to: Coordinate) {
     )
 }
 
+/** How long a marker glides from its old position to a new one. */
+private const val MARKER_GLIDE_MS = 900
+
+/** Beyond this jump the driver was relocated (e.g. re-anchored), so no glide. */
+private const val MARKER_GLIDE_MAX_KM = 15.0
+
 /**
  * Places arbitrary composable content as a marker at a real coordinate.
  * [keys] must include everything that changes the rendered content.
+ *
+ * When [position] changes the marker glides to the new spot instead of
+ * jumping, so moving drivers read as motion on the map.
  */
 @Composable
 @GoogleMapComposable
@@ -330,7 +341,36 @@ fun MapMarker(
     onClick: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
-    val markerState = rememberUpdatedMarkerState(position = position.toLatLng())
+    val target = position.toLatLng()
+    val markerState = rememberMarkerState()
+    var lastPosition by remember { mutableStateOf<Coordinate?>(null) }
+
+    LaunchedEffect(target) {
+        val previous = lastPosition
+        lastPosition = position
+        if (previous == null) {
+            // First composition: sit exactly on the coordinate, no glide.
+            markerState.position = target
+            return@LaunchedEffect
+        }
+        if (previous == position) return@LaunchedEffect
+        if (previous.distanceKmTo(position) > MARKER_GLIDE_MAX_KM) {
+            markerState.position = target
+            return@LaunchedEffect
+        }
+        val start = markerState.position
+        animate(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = tween(MARKER_GLIDE_MS, easing = FastOutSlowInEasing)
+        ) { fraction, _ ->
+            markerState.position = LatLng(
+                start.latitude + (target.latitude - start.latitude) * fraction,
+                start.longitude + (target.longitude - start.longitude) * fraction
+            )
+        }
+    }
+
     MarkerComposable(
         keys = keys,
         state = markerState,
