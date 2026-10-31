@@ -267,6 +267,9 @@ object FareRules {
     /** Mototaxi base / minimum fare inside Satipo. */
     const val MOTOTAXI_BASE_SOLES: Double = 2.0
 
+    /** Distance of the "typical trip" shown as the on-screen payment estimate. */
+    const val TYPICAL_LOCAL_KM: Double = 3.0
+
     fun floorSoles(service: ServiceKind): Double = when (service) {
         ServiceKind.LOCAL_MOTOTAXI -> MOTOTAXI_BASE_SOLES
         ServiceKind.INTERCITY -> 5.0
@@ -310,6 +313,16 @@ object FareRules {
         val safe = if (amount.isNaN()) floorSoles(service) else amount
         val snapped = (safe * 2).roundToInt() / 2.0
         return maxOf(snapped, floorSoles(service))
+    }
+
+    /** Cheapest and priciest flat intercity fares, for the estimate line. */
+    val intercityFareRange: ClosedFloatingPointRange<Double> =
+        fixedIntercityFares.minOf { it.second }..fixedIntercityFares.maxOf { it.second }
+
+    /** Estimate shown under the payment selector before a destination is picked. */
+    fun typicalEstimateSoles(service: ServiceKind): Double = when (service) {
+        ServiceKind.LOCAL_MOTOTAXI -> suggestedSoles(service, "", TYPICAL_LOCAL_KM)
+        ServiceKind.INTERCITY -> intercityFareRange.start
     }
 
     private fun round(value: Double): Double = (value * 2).roundToInt() / 2.0

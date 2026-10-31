@@ -62,8 +62,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.rork.ananego.data.model.Coordinate
 import com.rork.ananego.data.model.Driver
@@ -100,6 +103,7 @@ import com.rork.ananego.ui.state.AppUiState
 import com.rork.ananego.ui.state.AppViewModel
 import com.rork.ananego.ui.theme.GoldAccent
 import com.rork.ananego.ui.theme.GoldDeep
+import com.rork.ananego.ui.theme.GoldShine
 import com.rork.ananego.ui.theme.JungleDeep
 import com.rork.ananego.ui.theme.JungleOutline
 import com.rork.ananego.ui.theme.JungleSurface
@@ -248,6 +252,7 @@ fun PassengerHomeScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 PaymentMethodSelector(selected = state.paymentMethod, onSelect = onSelectPayment)
+                EstimatedPaymentText(state = state)
             }
         }
 
@@ -945,4 +950,43 @@ private fun PriceProposalSheet(
             }
         }
     }
+}
+
+/**
+ * Estimate shown under the payment selector so the passenger knows how much
+ * cash to carry or how much to transfer by Yape / Plin.
+ */
+@Composable
+private fun EstimatedPaymentText(state: AppUiState) {
+    val amountStyle = SpanStyle(color = GoldShine, fontWeight = FontWeight.Bold)
+    Text(
+        text = buildAnnotatedString {
+            when (state.selectedService) {
+                ServiceKind.LOCAL_MOTOTAXI -> {
+                    append("Viaje típico de 3 km: ")
+                    withStyle(amountStyle) {
+                        append(AppViewModel.formatSoles(FareRules.typicalEstimateSoles(state.selectedService)))
+                    }
+                    if (state.paymentMethod == PaymentMethod.CASH) {
+                        append(" · lleva ese monto en efectivo")
+                    } else {
+                        append(" · transfírelo por Yape/Plin")
+                    }
+                }
+                ServiceKind.INTERCITY -> {
+                    append("Tarifa plana según destino: ")
+                    val range = FareRules.intercityFareRange
+                    withStyle(amountStyle) {
+                        append(
+                            "${AppViewModel.formatSoles(range.start)} – " +
+                                AppViewModel.formatSoles(range.endInclusive)
+                        )
+                    }
+                    append(" · Mazamari S/ 5, Pangoa S/ 8, Pichanaqui S/ 20, La Merced S/ 40, Huancayo S/ 90, Lima S/ 140")
+                }
+            }
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = TextSecondary
+    )
 }
