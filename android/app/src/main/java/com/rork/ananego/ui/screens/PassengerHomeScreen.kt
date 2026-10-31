@@ -115,6 +115,9 @@ private const val DRIVER_ITEM_OFFSET = 6
 /** How long a pin-tapped driver card stays highlighted. */
 private const val DRIVER_HIGHLIGHT_MS = 4_500L
 
+/** Zoom the camera settles on when a driver pin is tapped (never zooms out). */
+private const val DRIVER_PIN_ZOOM = 15f
+
 /**
  * Passenger home: stylized Satipo map, destination search, service choice
  * between local mototaxi and intercity car, and nearby verified drivers.
@@ -323,7 +326,14 @@ private fun MapHeader(
                     isSelected,
                     title = "${driver.name} · ${driver.plate}",
                     zIndex = if (isSelected) 5f else 3f,
-                    onClick = { onDriverPinTap(driver.id) }
+                    onClick = {
+                        onDriverPinTap(driver.id)
+                        // Glide the camera over to the tapped driver, never zooming out.
+                        scope.launch {
+                            val zoom = maxOf(cameraPositionState.position.zoom, DRIVER_PIN_ZOOM)
+                            cameraPositionState.recenterOn(driver.position.toLatLng(), zoom)
+                        }
+                    }
                 ) {
                     VehiclePin(vehicleType = driver.vehicleType, isSelected = isSelected)
                 }
