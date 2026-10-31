@@ -18,7 +18,7 @@ enum class VehicleType(val label: String, val weeklyFeeSoles: Int) {
 
 /** Service the passenger picks on the home screen. */
 enum class ServiceKind(val title: String, val subtitle: String) {
-    LOCAL_MOTOTAXI("Mototaxi local", "Rápido y seguro en Satipo"),
+    LOCAL_MOTOTAXI("Mototaxi local", "Rápido y seguro en Satipo, Mazamari y Pangoa"),
     INTERCITY("Auto de ruta", "Tarifa plana: Mazamari, Pangoa, Pichanaqui, La Merced, Huancayo, Lima")
 }
 

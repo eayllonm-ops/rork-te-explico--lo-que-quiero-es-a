@@ -36,7 +36,6 @@ import com.rork.ananego.data.remote.LiveEvent
 import com.rork.ananego.data.remote.NetworkAdminDriver
 import com.rork.ananego.data.remote.NetworkSnapshot
 import com.rork.ananego.data.remote.PlacesRepository
-import com.rork.ananego.data.remote.SATIPO_SEARCH_CENTER
 import com.rork.ananego.data.remote.SnapshotMapper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -84,6 +83,9 @@ data class AppUiState(
     /** Live GPS position when available, Satipo's plaza as a safe fallback. */
     val mapCenter: Coordinate get() = userLocation ?: SampleData.satipoCenter
 
+    /** The town the passenger is operating in: Satipo, Mazamari or Pangoa. */
+    val zone: SampleData.ServiceZone get() = SampleData.zoneFor(userLocation)
+
     val hasLiveLocation: Boolean get() = locationStatus == LocationStatus.LIVE && userLocation != null
 
     val isLive: Boolean get() = connection == ConnectionStatus.LIVE
@@ -99,7 +101,7 @@ data class AppUiState(
     val destinationOptions: List<Place>
         get() {
             val base = when (selectedService) {
-                ServiceKind.LOCAL_MOTOTAXI -> SampleData.localDestinations
+                ServiceKind.LOCAL_MOTOTAXI -> zone.localPlaces
                 ServiceKind.INTERCITY -> SampleData.intercityDestinations
             }
             if (searchQuery.isBlank()) return base
@@ -358,7 +360,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         placesSearchJob = viewModelScope.launch {
             delay(450) // debounce so we don't fire a request on every keystroke
             _uiState.update { it.copy(isSearchingPlaces = true) }
-            val predictions = placesRepository.autocomplete(trimmed, SATIPO_SEARCH_CENTER)
+            val bias = SampleData.zoneFor(_uiState.value.userLocation).center
+            val predictions = placesRepository.autocomplete(trimmed, bias)
             if (isActive) {
                 _uiState.update { it.copy(placePredictions = predictions, isSearchingPlaces = false) }
             }
@@ -398,7 +401,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val pickup = state.mapCenter
-        val originName = if (state.hasLiveLocation) "Mi ubicación actual" else "Plaza de Armas de Satipo"
+        val originName = if (state.hasLiveLocation) "Mi ubicación actual" else SampleData.zoneFor(state.userLocation).fallbackOrigin
 
         _uiState.update { it.copy(isRequestingRide = true, searchQuery = "") }
 

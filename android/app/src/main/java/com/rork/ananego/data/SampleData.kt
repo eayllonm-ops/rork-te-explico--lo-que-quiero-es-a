@@ -33,6 +33,47 @@ object SampleData {
         Place("AH San Martín", "Zona norte de Satipo", Coordinate(-11.24612, -74.63509))
     )
 
+    /** Reference places inside the Mazamari district, verified against map data. */
+    val mazamariDestinations: List<Place> = listOf(
+        Place("Plaza de Armas de Mazamari", "Centro de Mazamari", Coordinate(-11.32881, -74.53069)),
+        Place("Mercado de Mazamari", "Mercado central", Coordinate(-11.32607, -74.53204)),
+        Place("Puesto de Salud Mazamari", "Centro de salud", Coordinate(-11.32431, -74.52906)),
+        Place("Aeropuerto de Mazamari", "Aeropuerto Manuel Prado Ugarteche", Coordinate(-11.32633, -74.53534))
+    )
+
+    /** Reference places inside San Martín de Pangoa, verified against map data. */
+    val pangoaDestinations: List<Place> = listOf(
+        Place("Plaza de Armas de Pangoa", "Centro de San Martín de Pangoa", Coordinate(-11.42842, -74.48858)),
+        Place("Hospital de San Martín de Pangoa", "Por la carretera JU-754", Coordinate(-11.42917, -74.49266)),
+        Place("CAC Pangoa", "Cooperativa café Pangoa", Coordinate(-11.42633, -74.49100)),
+        Place("Colegio San Ramón", "IE San Ramón, norte del pueblo", Coordinate(-11.43600, -74.48420))
+    )
+
+    /**
+     * A town where the mototaxi service operates with its own reference places.
+     * The passenger's zone follows their GPS, so someone in Mazamari sees
+     * Mazamari's places, distances and search results without any setting.
+     */
+    data class ServiceZone(
+        val name: String,
+        val center: Coordinate,
+        val fallbackOrigin: String,
+        val localPlaces: List<Place>
+    )
+
+    private val mazamariCenter = Coordinate(-11.32881, -74.53069)
+    private val pangoaCenter = Coordinate(-11.42842, -74.48858)
+
+    val satipoZone = ServiceZone("Satipo", satipoCenter, "Plaza de Armas de Satipo", localDestinations)
+    val mazamariZone = ServiceZone("Mazamari", mazamariCenter, "Plaza de Armas de Mazamari", mazamariDestinations)
+    val pangoaZone = ServiceZone("Pangoa", pangoaCenter, "Plaza de Armas de Pangoa", pangoaDestinations)
+
+    private val serviceZones = listOf(satipoZone, mazamariZone, pangoaZone)
+
+    /** The zone whose center is closest to [position]; Satipo when nothing is known. */
+    fun zoneFor(position: Coordinate?): ServiceZone =
+        position?.let { pos -> serviceZones.minByOrNull { it.center.distanceKmTo(pos) } } ?: satipoZone
+
     val intercityDestinations: List<Place> = listOf(
         Place("Mazamari", "Tarifa plana S/ 5.00 · aprox. 35 min", Coordinate(-11.32361, -74.52834)),
         Place("San Martín de Pangoa", "Tarifa plana S/ 8.00 · aprox. 50 min", Coordinate(-11.42842, -74.48858)),
