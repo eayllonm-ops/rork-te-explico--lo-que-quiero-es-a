@@ -77,6 +77,8 @@ data class AppUiState(
     val isRequestingRide: Boolean = false,
     /** How the passenger prefers to pay; persisted on device between rides. */
     val paymentMethod: PaymentMethod = PaymentMethod.CASH,
+    /** Trusted contact's phone used by the safety trip-sharing flow. */
+    val safetyContact: String = "",
     val uploadingPhotos: Set<VerificationPhoto> = emptySet(),
     val lastMessage: String? = null,
     /** A just-finished trip the passenger still has to pay (shows the QR / cash sheet). */
@@ -153,7 +155,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 PaymentMethod.YAPE_PLIN
             } else {
                 PaymentMethod.CASH
-            }
+            },
+            safetyContact = session.safetyContact
         )
     )
     val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
@@ -360,6 +363,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun selectPaymentMethod(method: PaymentMethod) {
         session.paymentMethod = method.name
         _uiState.update { it.copy(paymentMethod = method) }
+    }
+
+    /** Remembers the trusted contact for safety trip-sharing. */
+    fun saveSafetyContact(phone: String) {
+        session.safetyContact = phone
+        _uiState.update { it.copy(safetyContact = phone) }
     }
 
     fun updateSearchQuery(query: String) {

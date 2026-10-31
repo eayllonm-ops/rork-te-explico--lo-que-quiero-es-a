@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -69,10 +68,16 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.imePadding
 import com.rork.ananego.data.model.PaymentMethod
 import com.rork.ananego.data.model.Ride
+import com.rork.ananego.ui.components.PeruPhone
+import com.rork.ananego.ui.components.PeruPhoneField
 import com.rork.ananego.ui.components.RideActions
 import com.rork.ananego.ui.components.formatPhone
 import com.rork.ananego.data.model.RideOffer
@@ -168,10 +173,13 @@ fun RideTrackingScreen(
     onPassengerCountChange: (Int) -> Unit,
     onTogglePreference: (RidePreference) -> Unit,
     onShowPayment: () -> Unit = {},
+    safetyContact: String = "",
+    onSaveSafetyContact: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var isContactOpen by remember { mutableStateOf(false) }
+    var isShareOpen by remember { mutableStateOf(false) }
     val driverPhone = ride.driver?.phone.orEmpty()
 
     if (isContactOpen && ride.driver != null) {
@@ -187,6 +195,28 @@ fun RideTrackingScreen(
                 RideActions.whatsapp(context, driverPhone, "Hola, soy tu pasajero de Añane Go.")
             },
             onDismiss = { isContactOpen = false }
+        )
+    }
+
+    if (isShareOpen) {
+        SafetyShareSheet(
+            ride = ride,
+            initialContact = safetyContact,
+            onSend = { contact ->
+                onSaveSafetyContact(contact)
+                isShareOpen = false
+                if (!RideActions.shareTripWith(context, ride, contact)) {
+                    Log.w("RideTracking", "No se pudo abrir WhatsApp para compartir")
+                }
+            },
+            onOtherApps = { contact ->
+                onSaveSafetyContact(contact)
+                isShareOpen = false
+                if (!RideActions.shareTrip(context, ride)) {
+                    Log.w("RideTracking", "No se pudo abrir el selector para compartir")
+                }
+            },
+            onDismiss = { isShareOpen = false }
         )
     }
 
@@ -216,7 +246,17 @@ fun RideTrackingScreen(
                     containerColor = JungleCanvas,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                )
+                ),
+                actions = {
+                    // Safety sharing is reachable from the very first searching moment.
+                    IconButton(onClick = { isShareOpen = true }) {
+                        Icon(
+                            Icons.Filled.Share,
+                            contentDescription = "Compartir viaje por seguridad",
+                            tint = SuccessGreen
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
@@ -259,11 +299,7 @@ fun RideTrackingScreen(
                             Log.w("RideTracking", "No se pudo abrir WhatsApp")
                         }
                     },
-                    onShare = {
-                        if (!RideActions.shareTrip(context, ride)) {
-                            Log.w("RideTracking", "No se pudo abrir WhatsApp para compartir")
-                        }
-                    },
+                    onShare = { isShareOpen = true },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
@@ -643,6 +679,83 @@ private fun DriverCard(
             )
         }
       }
+    }
+}
+
+/**
+ * Bottom sheet for sending the trip details to a trusted contact: the passenger
+ * types (or reuses) a phone, and the summary goes out over WhatsApp or any app.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SafetyShareSheet(
+    ride: Ride,
+    initialContact: String,
+    onSend: (String) -> Unit,
+    onOtherApps: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var contact by remember { mutableStateOf(initialContact) }
+    val isReady = PeruPhone.isValid(contact)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = JungleSurface,
+        sheetState = rememberModalBottomSheetState()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Share, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Compartir por seguridad",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = "Tu contacto recibirá el conductor, la placa, la ruta, la tarifa y tu punto de recojo en el mapa.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+            PeruPhoneField(
+                value = contact,
+                onValueChange = { contact = it },
+                label = "Celular de tu contacto de confianza"
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = { onOtherApps(contact) },
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, JungleOutline)
+                ) {
+                    Text("Otras apps", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
+                }
+                Button(
+                    onClick = { onSend(contact) },
+                    enabled = isReady,
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen, contentColor = Color.White)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("WhatsApp", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 

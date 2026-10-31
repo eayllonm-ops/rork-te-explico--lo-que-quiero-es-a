@@ -275,6 +275,8 @@ fun AppNavigation() {
                     RideTrackingScreen(
                         ride = ride,
                         offers = state.offers,
+                        safetyContact = state.safetyContact,
+                        onSaveSafetyContact = viewModel::saveSafetyContact,
                         onBack = { navController.popBackStack() },
                         onCancel = {
                             viewModel.cancelRide()

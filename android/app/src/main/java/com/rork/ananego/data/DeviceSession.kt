@@ -32,6 +32,11 @@ class DeviceSession(context: Context) {
         get() = prefs.getString(KEY_PAYMENT, "CASH") ?: "CASH"
         set(value) = prefs.edit().putString(KEY_PAYMENT, value).apply()
 
+    /** The trusted contact's phone the passenger last shared a trip with. */
+    var safetyContact: String
+        get() = prefs.getString(KEY_SAFETY_CONTACT, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_SAFETY_CONTACT, value).apply()
+
     /** Which registration documents the driver already attached on device. */
     fun readDocuments(): DocumentFlags = DocumentFlags(
         hasProfilePhoto = prefs.getBoolean(KEY_DOC_PHOTO, false),
@@ -60,6 +65,7 @@ class DeviceSession(context: Context) {
         const val KEY_USER_ID = "user_id"
         const val KEY_ROLE = "role"
         const val KEY_PAYMENT = "payment_method"
+        const val KEY_SAFETY_CONTACT = "safety_contact"
         const val KEY_DOC_PHOTO = "doc_photo"
         const val KEY_DOC_DNI_FRONT = "doc_dni_front"
         const val KEY_DOC_DNI_BACK = "doc_dni_back"

@@ -36,6 +36,10 @@ object RideActions {
         return launch(context, Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/${international(phone)}$text")))
     }
 
+    /** Sends the trip summary straight to one trusted contact on WhatsApp. */
+    fun shareTripWith(context: Context, ride: Ride, phone: String): Boolean =
+        whatsapp(context, phone, tripMessage(ride))
+
     /** Opens WhatsApp's contact picker with a ready-to-send trip summary for a relative. */
     fun shareTrip(context: Context, ride: Ride): Boolean {
         val uri = Uri.parse("https://wa.me/?text=${Uri.encode(tripMessage(ride))}")
