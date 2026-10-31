@@ -25,9 +25,9 @@ object SampleData {
     val satipoCenter = Coordinate(-11.25283, -74.63757)
 
     val localDestinations: List<Place> = listOf(
-        Place("Terminal Terrestre Satipo", "Av. Marginal 480", Coordinate(-11.25717, -74.63301)),
+        Place("Terminal Terrestre Satipo", "Av. Marginal 480", Coordinate(-11.25996, -74.64461)),
         Place("Mercado Central de Satipo", "Jr. Colonos Fundadores", Coordinate(-11.25470, -74.63925)),
-        Place("Hospital de Satipo", "Jr. Los Incas 210", Coordinate(-11.24952, -74.64108)),
+        Place("Hospital de Satipo", "Jr. Los Incas 210", Coordinate(-11.24931, -74.63859)),
         Place("AH Micaela Bastidas", "Zona sur de Satipo", Coordinate(-11.26041, -74.64216)),
         Place("Universidad UNCP Satipo", "Carretera Marginal km 2", Coordinate(-11.24398, -74.62802)),
         Place("AH San Martín", "Zona norte de Satipo", Coordinate(-11.24612, -74.63509))
@@ -35,9 +35,9 @@ object SampleData {
 
     val intercityDestinations: List<Place> = listOf(
         Place("Mazamari", "Tarifa plana S/ 5.00 · aprox. 35 min", Coordinate(-11.32361, -74.52834)),
-        Place("San Martín de Pangoa", "Tarifa plana S/ 8.00 · aprox. 50 min", Coordinate(-11.40085, -74.54752)),
+        Place("San Martín de Pangoa", "Tarifa plana S/ 8.00 · aprox. 50 min", Coordinate(-11.42842, -74.48858)),
         Place("Pichanaqui", "Tarifa plana S/ 20.00 · aprox. 1 h 30 min", Coordinate(-10.92835, -74.87038)),
-        Place("La Merced", "Tarifa plana S/ 40.00 · aprox. 2 h 40 min", Coordinate(-11.05754, -75.33784)),
+        Place("La Merced", "Tarifa plana S/ 40.00 · aprox. 2 h 40 min", Coordinate(-11.05606, -75.32826)),
         Place("Huancayo", "Tarifa plana S/ 90.00 · aprox. 6 h", Coordinate(-12.06513, -75.20486)),
         Place("Lima", "Tarifa plana S/ 140.00 · aprox. 10 h", Coordinate(-12.04637, -77.04279))
     )
