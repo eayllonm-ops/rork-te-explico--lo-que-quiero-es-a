@@ -132,6 +132,7 @@ fun PassengerHomeScreen(
     state: AppUiState,
     contentPadding: PaddingValues,
     onSelectService: (ServiceKind) -> Unit,
+    onSelectPayment: (PaymentMethod) -> Unit,
     onSearchChange: (String) -> Unit,
     onResolvePrediction: suspend (PlacePrediction) -> Place?,
     onRequestRide: (Place, Double, PaymentMethod, String) -> Unit,
@@ -240,6 +241,17 @@ fun PassengerHomeScreen(
         }
 
         item {
+            Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "¿Cómo pagarás?",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                PaymentMethodSelector(selected = state.paymentMethod, onSelect = onSelectPayment)
+            }
+        }
+
+        item {
             SectionHeader(
                 title = "Conductores cercanos",
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -272,7 +284,7 @@ fun PassengerHomeScreen(
             state.mapCenter.distanceKmTo(place.position)
         )
         var amount by remember(place) { mutableStateOf(suggested) }
-        var paymentMethod by remember(place) { mutableStateOf(PaymentMethod.CASH) }
+        val paymentMethod = state.paymentMethod
         var reference by remember(place) { mutableStateOf("") }
         PriceProposalSheet(
             place = place,
@@ -281,7 +293,7 @@ fun PassengerHomeScreen(
             floor = FareRules.floorSoles(state.selectedService),
             paymentMethod = paymentMethod,
             reference = reference,
-            onPaymentChange = { paymentMethod = it },
+            onPaymentChange = onSelectPayment,
             onReferenceChange = { reference = it.take(120) },
             onAdjust = { delta -> amount = FareRules.clamp(amount + delta, state.selectedService) },
             onConfirm = {

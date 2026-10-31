@@ -75,6 +75,8 @@ data class AppUiState(
     val offers: List<RideOffer> = emptyList(),
     val isDriverOnline: Boolean = false,
     val isRequestingRide: Boolean = false,
+    /** How the passenger prefers to pay; persisted on device between rides. */
+    val paymentMethod: PaymentMethod = PaymentMethod.CASH,
     val uploadingPhotos: Set<VerificationPhoto> = emptySet(),
     val lastMessage: String? = null,
     /** A just-finished trip the passenger still has to pay (shows the QR / cash sheet). */
@@ -145,7 +147,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val placesRepository = PlacesRepository(application.applicationContext)
 
     private val _uiState = MutableStateFlow(
-        AppUiState(role = if (session.lastRole == "DRIVER") AppRole.DRIVER else AppRole.PASSENGER)
+        AppUiState(
+            role = if (session.lastRole == "DRIVER") AppRole.DRIVER else AppRole.PASSENGER,
+            paymentMethod = if (session.paymentMethod == "YAPE_PLIN") {
+                PaymentMethod.YAPE_PLIN
+            } else {
+                PaymentMethod.CASH
+            }
+        )
     )
     val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
 
@@ -345,6 +354,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectService(service: ServiceKind) {
         _uiState.update { it.copy(selectedService = service) }
+    }
+
+    /** Remembers the passenger's payment choice for this and future rides. */
+    fun selectPaymentMethod(method: PaymentMethod) {
+        session.paymentMethod = method.name
+        _uiState.update { it.copy(paymentMethod = method) }
     }
 
     fun updateSearchQuery(query: String) {

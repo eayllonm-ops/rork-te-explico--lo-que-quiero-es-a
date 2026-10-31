@@ -27,6 +27,11 @@ class DeviceSession(context: Context) {
         get() = prefs.getString(KEY_ROLE, "PASSENGER") ?: "PASSENGER"
         set(value) = prefs.edit().putString(KEY_ROLE, value).apply()
 
+    /** The passenger's payment choice (CASH or YAPE_PLIN), kept between rides. */
+    var paymentMethod: String
+        get() = prefs.getString(KEY_PAYMENT, "CASH") ?: "CASH"
+        set(value) = prefs.edit().putString(KEY_PAYMENT, value).apply()
+
     /** Which registration documents the driver already attached on device. */
     fun readDocuments(): DocumentFlags = DocumentFlags(
         hasProfilePhoto = prefs.getBoolean(KEY_DOC_PHOTO, false),
@@ -54,6 +59,7 @@ class DeviceSession(context: Context) {
     private companion object {
         const val KEY_USER_ID = "user_id"
         const val KEY_ROLE = "role"
+        const val KEY_PAYMENT = "payment_method"
         const val KEY_DOC_PHOTO = "doc_photo"
         const val KEY_DOC_DNI_FRONT = "doc_dni_front"
         const val KEY_DOC_DNI_BACK = "doc_dni_back"

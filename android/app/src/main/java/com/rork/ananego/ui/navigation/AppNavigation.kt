@@ -217,6 +217,7 @@ fun AppNavigation() {
                     state = state,
                     contentPadding = innerPadding,
                     onSelectService = viewModel::selectService,
+                    onSelectPayment = viewModel::selectPaymentMethod,
                     onSearchChange = viewModel::updateSearchQuery,
                     onResolvePrediction = viewModel::resolvePlace,
                     onRequestRide = { place, proposedFare, paymentMethod, reference ->
