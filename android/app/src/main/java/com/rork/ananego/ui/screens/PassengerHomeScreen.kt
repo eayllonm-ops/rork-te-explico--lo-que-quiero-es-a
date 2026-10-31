@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,6 +51,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,10 +103,17 @@ import com.rork.ananego.ui.theme.JungleOutline
 import com.rork.ananego.ui.theme.JungleSurface
 import com.rork.ananego.ui.theme.SuccessGreen
 import com.rork.ananego.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Driver pins drawn on the request-screen map; the closest ones win. */
 private const val MAX_MAP_DRIVER_PINS = 8
+
+/** Driver items in the LazyColumn start after the map, search, service and header blocks. */
+private const val DRIVER_ITEM_OFFSET = 6
+
+/** How long a pin-tapped driver card stays highlighted. */
+private const val DRIVER_HIGHLIGHT_MS = 4_500L
 
 /**
  * Passenger home: stylized Satipo map, destination search, service choice
@@ -125,9 +134,23 @@ fun PassengerHomeScreen(
 ) {
     var isSearching by remember { mutableStateOf(false) }
     var pendingPlace by remember { mutableStateOf<Place?>(null) }
+    var selectedDriverId by remember { mutableStateOf<String?>(null) }
     val predictionScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+
+    // Tapping a map pin brings that driver's card into view and lights it up.
+    LaunchedEffect(selectedDriverId) {
+        val id = selectedDriverId ?: return@LaunchedEffect
+        val index = state.filteredDrivers.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            listState.animateScrollToItem(DRIVER_ITEM_OFFSET + index)
+        }
+        delay(DRIVER_HIGHLIGHT_MS)
+        if (selectedDriverId == id) selectedDriverId = null
+    }
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding(),
@@ -138,6 +161,8 @@ fun PassengerHomeScreen(
         item {
             MapHeader(
                 state = state,
+                selectedDriverId = selectedDriverId,
+                onDriverPinTap = { driverId -> selectedDriverId = driverId },
                 onOpenActiveRide = onOpenActiveRide,
                 onRequestLocationPermission = onRequestLocationPermission
             )
@@ -222,6 +247,7 @@ fun PassengerHomeScreen(
             DriverRow(
                 driver = driver,
                 onClick = { onOpenDriver(driver) },
+                isHighlighted = driver.id == selectedDriverId,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
@@ -262,6 +288,8 @@ fun PassengerHomeScreen(
 @Composable
 private fun MapHeader(
     state: AppUiState,
+    selectedDriverId: String?,
+    onDriverPinTap: (String) -> Unit,
     onOpenActiveRide: () -> Unit,
     onRequestLocationPermission: () -> Unit
 ) {
@@ -287,13 +315,17 @@ private fun MapHeader(
         ) {
             // Only the nearest handful keeps the map readable; the full list stays below.
             state.filteredDrivers.take(MAX_MAP_DRIVER_PINS).forEach { driver ->
+                val isSelected = driver.id == selectedDriverId
                 MapMarker(
                     position = driver.position,
                     driver.id,
                     driver.vehicleType,
-                    title = "${driver.name} · ${driver.plate}"
+                    isSelected,
+                    title = "${driver.name} · ${driver.plate}",
+                    zIndex = if (isSelected) 5f else 3f,
+                    onClick = { onDriverPinTap(driver.id) }
                 ) {
-                    VehiclePin(vehicleType = driver.vehicleType)
+                    VehiclePin(vehicleType = driver.vehicleType, isSelected = isSelected)
                 }
             }
             if (!state.hasLiveLocation) {

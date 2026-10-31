@@ -1,5 +1,8 @@
 package com.rork.ananego.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +33,8 @@ import com.rork.ananego.data.model.Driver
 import com.rork.ananego.data.model.VehicleType
 import com.rork.ananego.ui.state.AppViewModel
 import com.rork.ananego.ui.theme.GoldAccent
+import com.rork.ananego.ui.theme.JungleDeep
+import com.rork.ananego.ui.theme.JungleOutline
 import com.rork.ananego.ui.theme.SuccessGreen
 import com.rork.ananego.ui.theme.TextSecondary
 
@@ -42,9 +48,23 @@ fun VehicleType.icon(): ImageVector = when (this) {
 fun DriverRow(
     driver: Driver,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isHighlighted: Boolean = false
 ) {
-    JungleCard(modifier = modifier.fillMaxWidth()) {
+    val borderColor by animateColorAsState(
+        targetValue = if (isHighlighted) GoldAccent else JungleOutline.copy(alpha = 0.6f),
+        animationSpec = tween(250),
+        label = "driverBorder"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (isHighlighted) 2.dp else 1.dp,
+        animationSpec = tween(250),
+        label = "driverBorderWidth"
+    )
+    JungleCard(
+        modifier = modifier.fillMaxWidth(),
+        border = BorderStroke(borderWidth, borderColor)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -107,22 +127,30 @@ fun DriverRow(
     }
 }
 
-/** Compact map pin for a driver's vehicle: green for mototaxis, gold for cars. */
+/**
+ * Compact map pin for a driver's vehicle: green for mototaxis, gold for cars.
+ * A selected pin grows slightly so the tapped marker stands out.
+ */
 @Composable
-fun VehiclePin(vehicleType: VehicleType, modifier: Modifier = Modifier) {
+fun VehiclePin(vehicleType: VehicleType, modifier: Modifier = Modifier, isSelected: Boolean = false) {
     val isMototaxi = vehicleType == VehicleType.MOTOTAXI
+    val pinSize by animateDpAsState(
+        targetValue = if (isSelected) 48.dp else 40.dp,
+        animationSpec = tween(200),
+        label = "pinSize"
+    )
     androidx.compose.material3.Surface(
-        modifier = modifier.size(40.dp),
+        modifier = modifier.size(pinSize),
         shape = CircleShape,
         color = if (isMototaxi) SuccessGreen else GoldAccent,
         border = BorderStroke(2.dp, Color.White),
-        shadowElevation = 6.dp
+        shadowElevation = if (isSelected) 10.dp else 6.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = vehicleType.icon(),
                 contentDescription = vehicleType.label,
-                tint = if (isMototaxi) Color.White else com.rork.ananego.ui.theme.JungleDeep,
+                tint = if (isMototaxi) Color.White else JungleDeep,
                 modifier = Modifier.size(22.dp)
             )
         }
