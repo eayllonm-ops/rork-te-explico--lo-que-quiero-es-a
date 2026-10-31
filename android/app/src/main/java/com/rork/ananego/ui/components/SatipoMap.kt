@@ -41,6 +41,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.runtime.CompositionLocalProvider
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -98,16 +103,17 @@ fun SatipoMap(
     cameraPositionState: CameraPositionState = rememberSatipoCamera(Coordinate(-11.25283, -74.63757)),
     routeFrom: Coordinate? = null,
     routeTo: Coordinate? = null,
-    showMyLocation: Boolean = false,
+    userLocation: Coordinate? = null,
     onMapLoaded: () -> Unit = {},
     content: @Composable @GoogleMapComposable () -> Unit = {}
 ) {
     val mapStyle = remember { MapStyleOptions(JUNGLE_MAP_STYLE_JSON) }
-    val properties = remember(showMyLocation) {
+    // Never enable the SDK's my-location layer: our own UserLocationDot marker
+    // draws the position instead (see the frozen lifecycle owner below).
+    val properties = remember {
         MapProperties(
             mapType = MapType.NORMAL,
             mapStyleOptions = mapStyle,
-            isMyLocationEnabled = showMyLocation,
             minZoomPreference = 5f
         )
     }
@@ -123,6 +129,23 @@ fun SatipoMap(
     }
 
     val context = LocalContext.current
+    // maps-compose pauses the native map when the lifecycle owner pauses. On
+    // replacement Maps providers (emulators / microG) the provider itself
+    // throws LocationComponentNotInitializedException inside onPause when its
+    // LocationComponent never activated, and aborting Activity.onPause that way
+    // either kills the process or freezes the system. Feeding the map a
+    // lifecycle owner that is always RESUMED keeps those provider calls from
+    // ever running; the map simply keeps rendering while backgrounded.
+    val mapLifecycleOwner = remember {
+        lateinit var registry: LifecycleRegistry
+        val owner = object : LifecycleOwner {
+            override val lifecycle: Lifecycle
+                get() = registry
+        }
+        registry = LifecycleRegistry.createUnsafe(owner)
+        registry.currentState = Lifecycle.State.RESUMED
+        owner
+    }
     val playServicesStatus = remember {
         GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
     }
@@ -149,7 +172,8 @@ fun SatipoMap(
 
     Box(modifier = modifier.background(JungleCanvas)) {
         if (playServicesStatus == ConnectionResult.SUCCESS) {
-            key(attempt) {
+            CompositionLocalProvider(LocalLifecycleOwner provides mapLifecycleOwner) {
+                key(attempt) {
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
@@ -165,7 +189,13 @@ fun SatipoMap(
                     if (routeFrom != null && routeTo != null) {
                         RouteLine(from = routeFrom, to = routeTo)
                     }
+                    if (userLocation != null) {
+                        MapMarker(position = userLocation, "my-location", zIndex = 4f) {
+                            UserLocationDot()
+                        }
+                    }
                     content()
+                }
                 }
             }
         }

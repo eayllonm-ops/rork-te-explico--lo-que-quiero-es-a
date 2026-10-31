@@ -279,7 +279,7 @@ private fun MapHeader(
                 .fillMaxWidth()
                 .height(320.dp),
             cameraPositionState = cameraPositionState,
-            showMyLocation = state.hasLiveLocation,
+            userLocation = state.userLocation,
             onMapLoaded = { isMapLoaded = true }
         ) {
             state.filteredDrivers.forEach { driver ->
