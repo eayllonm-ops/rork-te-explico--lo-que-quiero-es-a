@@ -53,6 +53,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,6 +90,7 @@ import com.rork.ananego.ui.components.MapMarker
 import com.rork.ananego.ui.components.SatipoMap
 import com.rork.ananego.ui.components.SectionHeader
 import com.rork.ananego.ui.components.StaticLocationDot
+import com.rork.ananego.ui.components.TrailLine
 import com.rork.ananego.ui.components.VehiclePin
 import com.rork.ananego.ui.components.clickableCard
 import com.rork.ananego.ui.components.icon
@@ -117,6 +119,9 @@ private const val DRIVER_HIGHLIGHT_MS = 4_500L
 
 /** Zoom the camera settles on when a driver pin is tapped (never zooms out). */
 private const val DRIVER_PIN_ZOOM = 15f
+
+/** How many past positions make up a driver's recent trail on the map. */
+private const val TRAIL_MAX_POINTS = 8
 
 /**
  * Passenger home: stylized Satipo map, destination search, service choice
@@ -301,6 +306,24 @@ private fun MapHeader(
     var isMapLoaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    // Recent path per driver: the positions seen in the last snapshots, so the
+    // map shows where each vehicle has been moving over the last few seconds.
+    val trails = remember { mutableStateMapOf<String, List<Coordinate>>() }
+    LaunchedEffect(state.filteredDrivers) {
+        for (driver in state.filteredDrivers) {
+            val history = trails[driver.id].orEmpty()
+            val last = history.lastOrNull()
+            when {
+                last == null || last.distanceKmTo(driver.position) > 15.0 ->
+                    trails[driver.id] = listOf(driver.position) // re-anchored: restart
+                last == driver.position -> Unit // no movement, keep the trail
+                else ->
+                    trails[driver.id] = (history + driver.position).takeLast(TRAIL_MAX_POINTS)
+            }
+        }
+        trails.keys.retainAll(state.filteredDrivers.map { it.id }.toSet())
+    }
+
     FollowUserEffect(
         cameraPositionState = cameraPositionState,
         isMapLoaded = isMapLoaded,
@@ -316,6 +339,17 @@ private fun MapHeader(
             userLocation = state.userLocation,
             onMapLoaded = { isMapLoaded = true }
         ) {
+            // Faint recent-path trail under each visible pin, colored by vehicle type.
+            state.filteredDrivers.take(MAX_MAP_DRIVER_PINS).forEach { driver ->
+                trails[driver.id]?.let { history ->
+                    val trailColor = if (driver.vehicleType == VehicleType.MOTOTAXI) {
+                        SuccessGreen.copy(alpha = 0.35f)
+                    } else {
+                        GoldAccent.copy(alpha = 0.35f)
+                    }
+                    TrailLine(points = history, color = trailColor)
+                }
+            }
             // Only the nearest handful keeps the map readable; the full list stays below.
             state.filteredDrivers.take(MAX_MAP_DRIVER_PINS).forEach { driver ->
                 val isSelected = driver.id == selectedDriverId

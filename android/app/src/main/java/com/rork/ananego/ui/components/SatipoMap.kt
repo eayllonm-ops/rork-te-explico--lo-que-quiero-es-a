@@ -441,6 +441,23 @@ suspend fun CameraPositionState.recenterOn(target: LatLng, zoom: Float = CITY_ZO
     }
 }
 
+/**
+ * Faint line tracing where a vehicle has been recently, drawn under its pin.
+ * Needs at least two points; anything less draws nothing.
+ */
+@Composable
+@GoogleMapComposable
+fun TrailLine(points: List<Coordinate>, color: Color) {
+    if (points.size < 2) return
+    Polyline(
+        points = points.map { it.toLatLng() },
+        color = color,
+        width = 7f,
+        geodesic = true,
+        zIndex = 1f
+    )
+}
+
 /** Pulsing blue dot showing the user's own position. */
 @Composable
 fun UserLocationDot(modifier: Modifier = Modifier) {
