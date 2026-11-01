@@ -30,7 +30,16 @@ object SampleData {
         Place("Hospital de Satipo", "Jr. Los Incas 210", Coordinate(-11.24931, -74.63859)),
         Place("AH Micaela Bastidas", "Zona sur de Satipo", Coordinate(-11.26041, -74.64216)),
         Place("Universidad UNCP Satipo", "Carretera Marginal km 2", Coordinate(-11.24398, -74.62802)),
-        Place("AH San Martín", "Zona norte de Satipo", Coordinate(-11.24612, -74.63509))
+        Place("AH San Martín", "Zona norte de Satipo", Coordinate(-11.24612, -74.63509)),
+        // Negocios locales conocidos (Google Maps / OpenStreetMap), útiles como referencias.
+        Place("Restaurante Toro Bravo", "Parrillas y ahumados · Jr. Agricultura 642", Coordinate(-11.25246, -74.64241)),
+        Place("Pollería Koquetos", "Pollería · centro de Satipo", Coordinate(-11.25624, -74.63918)),
+        Place("Cevichería Puntarhena", "Cevichería · centro de Satipo", Coordinate(-11.25690, -74.63928)),
+        Place("Restaurant Turístico Katari", "Restaurante turístico", Coordinate(-11.25647, -74.63972)),
+        Place("Recreo Turístico Mana", "Recreo campestre · ruta al río", Coordinate(-11.26118, -74.63842)),
+        Place("Hospedaje Henrys", "Hospedaje · Jr. Francisco Bolognesi 460", Coordinate(-11.25063, -74.63783)),
+        Place("Grifo Vásquez", "Grifo · Jr. Daniel Alcides Carrión", Coordinate(-11.24791, -74.63719)),
+        Place("Zoco Market", "Minimarket · Jr. Manuel Prado", Coordinate(-11.25394, -74.63794))
     )
 
     /** Reference places inside the Mazamari district, verified against map data. */
@@ -38,7 +47,8 @@ object SampleData {
         Place("Plaza de Armas de Mazamari", "Centro de Mazamari", Coordinate(-11.32881, -74.53069)),
         Place("Mercado de Mazamari", "Mercado central", Coordinate(-11.32607, -74.53204)),
         Place("Puesto de Salud Mazamari", "Centro de salud", Coordinate(-11.32431, -74.52906)),
-        Place("Aeropuerto de Mazamari", "Aeropuerto Manuel Prado Ugarteche", Coordinate(-11.32633, -74.53534))
+        Place("Aeropuerto de Mazamari", "Aeropuerto Manuel Prado Ugarteche", Coordinate(-11.32633, -74.53534)),
+        Place("Restaurante Turístico La Orilla", "Platos típicos · junto al puente San Cristóbal", Coordinate(-11.33357, -74.52862))
     )
 
     /** Reference places inside San Martín de Pangoa, verified against map data. */
@@ -46,7 +56,11 @@ object SampleData {
         Place("Plaza de Armas de Pangoa", "Centro de San Martín de Pangoa", Coordinate(-11.42842, -74.48858)),
         Place("Hospital de San Martín de Pangoa", "Por la carretera JU-754", Coordinate(-11.42917, -74.49266)),
         Place("CAC Pangoa", "Cooperativa café Pangoa", Coordinate(-11.42633, -74.49100)),
-        Place("Colegio San Ramón", "IE San Ramón, norte del pueblo", Coordinate(-11.43600, -74.48420))
+        Place("Colegio San Ramón", "IE San Ramón, norte del pueblo", Coordinate(-11.43600, -74.48420)),
+        Place("Hotel Fortuna", "Hotel · Av. España 247", Coordinate(-11.42788, -74.48937)),
+        Place("Residencial Hotel Pangoa", "Hotel · entrada norte del pueblo", Coordinate(-11.41931, -74.48955)),
+        Place("Restaurante La Murralla de Fierro", "Restaurante · Jr. 28 de Julio", Coordinate(-11.42657, -74.48973)),
+        Place("Hospedaje Leopardo", "Hospedaje · centro de Pangoa", Coordinate(-11.42988, -74.48741))
     )
 
     /**
