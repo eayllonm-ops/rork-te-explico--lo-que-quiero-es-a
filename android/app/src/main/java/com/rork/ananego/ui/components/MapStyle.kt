@@ -7,7 +7,6 @@ package com.rork.ananego.ui.components
 internal const val JUNGLE_MAP_STYLE_JSON: String = """
 [
   { "elementType": "geometry", "stylers": [{ "color": "#0f3d17" }] },
-  { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
   { "elementType": "labels.text.fill", "stylers": [{ "color": "#bfddbb" }] },
   { "elementType": "labels.text.stroke", "stylers": [{ "color": "#051a0a" }] },
   {
@@ -37,7 +36,12 @@ internal const val JUNGLE_MAP_STYLE_JSON: String = """
   {
     "featureType": "poi",
     "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#8fb28f" }]
+    "stylers": [{ "color": "#bfddbb" }]
+  },
+  {
+    "featureType": "poi.business",
+    "elementType": "labels.text",
+    "stylers": [{ "visibility": "on" }]
   },
   {
     "featureType": "poi.park",
